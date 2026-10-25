@@ -87,6 +87,8 @@
   .lock-show { display: none; }
   body.locked .lock-show { display: block; }
   body.locked .lock-hide { display: none !important; }
+  /* On air the panel only operates the event: the list, the draw and the history. Everything else is set in Preview. */
+  body[data-mode=live] .live-hide { display: none !important; }
   .locked-banner { align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
   body.locked .locked-banner { display: flex; }
   .locked-banner p { margin: 0; flex: 1 1 260px; }
@@ -168,8 +170,8 @@
   <h1>Sorteador</h1>
   <div class="tabs" id="channels" role="tablist" aria-label="Canal"></div>
   <div class="tabs" id="modeSwitch" role="group" aria-label="Modo">
-    <button data-mode="test" title="O botão principal faz um sorteio de teste, só nos clips em Modo prévia">Ensaio</button>
-    <button data-mode="live" title="O botão principal faz o sorteio de verdade, na saída">Ao vivo</button>
+    <button data-mode="test" title="O botão principal faz um sorteio de teste, só nos clips em Modo prévia. Todas as configurações ficam disponíveis">Preview</button>
+    <button data-mode="live" title="O botão principal faz o sorteio de verdade, na saída. Só a lista, o sorteio e o histórico ficam disponíveis">Ao vivo</button>
   </div>
   <button class="ghost" id="lock" title="Trava as configurações deste canal em todos os painéis, para operar sem mexer em nada por engano">Travar</button>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Conectando…</span></div>
@@ -204,9 +206,9 @@
   <div class="col col-settings">
     <div class="tabs pane-tabs" id="paneTabs" role="tablist" aria-label="Configurações">
       <button role="tab" data-pane="conteudo" class="lock-hide">Conteúdo</button>
-      <button role="tab" data-pane="animacao" class="lock-hide">Animação</button>
-      <button role="tab" data-pane="visual" class="lock-hide">Visual</button>
-      <button role="tab" data-pane="textos" class="lock-hide">Textos</button>
+      <button role="tab" data-pane="animacao" class="lock-hide live-hide">Animação</button>
+      <button role="tab" data-pane="visual" class="lock-hide live-hide">Visual</button>
+      <button role="tab" data-pane="textos" class="lock-hide live-hide">Textos</button>
       <button role="tab" data-pane="historico">Histórico</button>
     </div>
 
@@ -232,6 +234,7 @@
       </div>
       <label class="switch"><span>Não repetir quem já foi sorteado</span><input type="checkbox" data-key="noRepeat"></label>
 
+      <div class="live-hide">
       <h3>Vários ganhadores</h3>
       <label class="field"><span>Ganhadores por sorteio <output data-for="drawCount" data-digits="0"></output></span>
         <input type="range" data-key="drawCount" min="1" max="20" step="1"></label>
@@ -257,9 +260,10 @@
         <select id="copyTarget" style="flex: 1 1 160px; width: auto"></select>
         <button class="ghost" id="copyVisual" title="Copia animação, efeitos, cores, fontes e tamanhos; a lista e os textos ficam como estão">Copiar visual para lá</button>
       </div>
+      </div>
     </section>
 
-    <section class="pane lock-hide" role="tabpanel" data-pane="animacao">
+    <section class="pane lock-hide live-hide" role="tabpanel" data-pane="animacao">
       <h2>Animação</h2>
       <div class="segmented" data-key="animation">
         <button data-value="0">Vertical</button>
@@ -297,7 +301,7 @@
       <div class="pane-foot"><button class="ghost" data-reset="animacao">Restaurar padrão da animação</button></div>
     </section>
 
-    <section class="pane lock-hide" role="tabpanel" data-pane="visual">
+    <section class="pane lock-hide live-hide" role="tabpanel" data-pane="visual">
       <h2>Visual</h2>
       <div class="field-title">Estilos prontos</div>
       <div class="presets" id="presets"></div>
@@ -321,7 +325,7 @@
       <div class="pane-foot"><button class="ghost" data-reset="visual">Restaurar padrão do visual</button></div>
     </section>
 
-    <section class="pane lock-hide" role="tabpanel" data-pane="textos">
+    <section class="pane lock-hide live-hide" role="tabpanel" data-pane="textos">
       <h2>Título</h2>
       <label class="field"><span>Texto (aparece o tempo todo)</span><input type="text" data-key="title" placeholder="Ex.: Sorteio de brindes · Prêmio: Smart TV"></label>
       <label class="field"><span>Fonte do título</span>
@@ -1050,7 +1054,7 @@
     fetch(`/api/qr?canal=${channel}`).then(res => res.json()).then(data => { if (qr.key === key) Object.assign(qr, data); }).catch(() => {});
   }
 
-  // The stage shows the draw the big button runs: the rehearsal in "Ensaio", the output in "Ao vivo".
+  // The stage shows the draw the big button runs: the test in "Preview", the output in "Ao vivo".
   function renderStages() {
     requestAnimationFrame(renderStages);
     if (!state || clockOffset === null) return;
@@ -1077,13 +1081,14 @@
     $$('#modeSwitch button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     const test = mode === 'test';
     $('#stageTitle').textContent = test ? 'Sorteio de teste' : 'Ao vivo';
-    $('#badge').textContent = test ? 'ENSAIO' : 'NO AR';
+    $('#badge').textContent = test ? 'PREVIEW' : 'NO AR';
     $('#startLabel').textContent = test ? 'Sorteio de teste' : 'Iniciar sorteio';
     $('#clear').textContent = test ? 'Limpar teste' : 'Limpar tela';
     $('#board').title = test ? 'Mostra os ganhadores só nos clips em Modo prévia' : 'Mostra na tela todos os sorteados até agora';
     $('#modeHint').innerHTML = test
       ? 'O teste roda a animação e os efeitos completos, mas <strong>não vai para o ar</strong> e não conta no histórico. Atalho: barra de espaço.'
-      : 'Atalho: <strong>segure</strong> a barra de espaço para sortear. Para ensaiar sem ir para o ar, mude para <strong>Ensaio</strong>.';
+      : 'Atalho: <strong>segure</strong> a barra de espaço para sortear. Para ajustar animação e visual ou testar sem ir para o ar, mude para <strong>Preview</strong>.';
+    renderPanes();
     if (state) renderLive(state);
   }
 
@@ -1406,11 +1411,11 @@
   }).catch(() => {});
 
   // ---------- settings tabs ----------
-  // Locked channels only show the history, the one tab that is not a setting.
+  // Locked channels only show the history, the one tab that is not a setting. On air only Conteúdo and Histórico exist.
   let pane = localStorageGet('aba') || 'conteudo';
   function renderPanes() {
     const locked = state && state.locked;
-    const shown = locked ? 'historico' : pane;
+    const shown = locked ? 'historico' : mode === 'live' && pane !== 'historico' ? 'conteudo' : pane;
     $$('#paneTabs button').forEach(b => {
       const on = b.dataset.pane === shown;
       b.classList.toggle('active', on);
@@ -1604,7 +1609,7 @@
   }
 
   // ---------- space bar ----------
-  // In "Ensaio" a tap runs a test. On air the bar has to be held for a moment, so a stray key never starts a draw.
+  // In "Preview" a tap runs a test. On air the bar has to be held for a moment, so a stray key never starts a draw.
   const HOLD_TIME = 600;
   let holdTimer = null;
   const typing = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);

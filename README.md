@@ -16,7 +16,7 @@ Plugin FFGL para o **Resolume Arena/Avenue 7** que faz sorteios de **nomes** ou 
 - [Vários ganhadores e tela de ganhadores](#vários-ganhadores-e-tela-de-ganhadores)
 - [Contagem, nomes longos e QR code](#contagem-nomes-longos-e-qr-code)
 - [Sorteio de números](#sorteio-de-números)
-- [Sorteio de teste (Ensaio)](#sorteio-de-teste-ensaio)
+- [Sorteio de teste (Preview)](#sorteio-de-teste-preview)
 - [Canais](#canais)
 - [Tutoriais](#tutoriais)
 - [API HTTP (Stream Deck / Companion)](#api-http-stream-deck--companion)
@@ -50,7 +50,7 @@ Plugin FFGL para o **Resolume Arena/Avenue 7** que faz sorteios de **nomes** ou 
 **Controle**
 
 - **Painel web** responsivo, com palco que reproduz a saída com fidelidade (mesma fonte, animação e efeitos)
-- Modos **Ensaio** e **Ao vivo**: a página fica azul ou vermelha, para deixar claro se o botão grande vai para o ar
+- Modos **Preview** e **Ao vivo**: a página fica azul ou vermelha, para deixar claro se o botão grande vai para o ar. No ao vivo, o painel mostra só o necessário para operar o evento
 - Aviso quando **nenhum clip** do canal está rodando no Resolume, antes de sortear para uma tela vazia
 - **Travar configurações** para operar o evento sem mexer em nada por engano
 - **QR code** na tela de espera para abrir o painel no celular
@@ -104,20 +104,20 @@ No computador, o **palco** fica fixo à esquerda e as configurações em abas à
 | Parte | O que tem |
 |---|---|
 | **Canais** (topo) | Troca entre os canais 1 a 4, com os nomes dados a eles. O indicador à direita mostra se o painel está conectado ao plugin |
-| **Ensaio / Ao vivo** (topo) | Define o que o botão grande faz. Em **Ao vivo** (vermelho, *NO AR*) ele sorteia de verdade; em **Ensaio** (azul) faz um [sorteio de teste](#sorteio-de-teste-ensaio). O navegador lembra a escolha |
+| **Preview / Ao vivo** (topo) | Define o que o botão grande faz. Em **Ao vivo** (vermelho, *NO AR*) ele sorteia de verdade, e o painel fica só com a operação do evento: a aba *Conteúdo* com a lista ou os números, o sorteio, o *Ausente* e o *Histórico*; animação, visual, textos e vários ganhadores somem. Em **Preview** (azul) faz um [sorteio de teste](#sorteio-de-teste-preview) e todas as configurações ficam disponíveis. O navegador lembra a escolha |
 | **Travar** (topo) | Trava as configurações do canal em todos os painéis ([veja abaixo](#travar-configurações)) |
-| **Palco** | Reprodução fiel da saída (ou do teste, em Ensaio), com barra de progresso e estado. Embaixo, quantos clips do canal estão rodando no Resolume, com aviso se nenhum estiver. Botões **Iniciar sorteio**, **Ausente, sortear de novo**, **Ganhadores** e **Limpar tela**, e quantos ainda estão disponíveis |
-| Aba **Conteúdo** | Lista de nomes ou faixa de números, *Completar com zeros* e *Não repetir*, com avisos sobre nomes repetidos, parecidos ou longos demais. **Vários ganhadores**. **Este canal**: nome, exportar, importar e copiar o visual para outro canal |
-| Aba **Animação** | Tipo de animação, duração, velocidade inicial, desaceleração, itens visíveis ao redor, efeito tambor, volta automática à espera, contagem regressiva e os efeitos |
-| Aba **Visual** | Estilos prontos, fonte, tamanho, posição vertical, nomes longos em duas linhas, contorno, cores e opacidade do fundo |
-| Aba **Textos** | Título (texto, fonte, tamanho, posição e cor), texto de espera (texto, tamanho e cor), título da tela de ganhadores, maiúsculas e QR code na tela de espera |
+| **Palco** | Reprodução fiel da saída (ou do teste, em Preview), com barra de progresso e estado. Embaixo, quantos clips do canal estão rodando no Resolume, com aviso se nenhum estiver. Botões **Iniciar sorteio**, **Ausente, sortear de novo**, **Ganhadores** e **Limpar tela**, e quantos ainda estão disponíveis |
+| Aba **Conteúdo** | Lista de nomes ou faixa de números, *Completar com zeros* e *Não repetir*, com avisos sobre nomes repetidos, parecidos ou longos demais. **Vários ganhadores**. **Este canal**: nome, exportar, importar e copiar o visual para outro canal. Em *Ao vivo*, só a lista ou os números e *Não repetir* |
+| Aba **Animação** (só em Preview) | Tipo de animação, duração, velocidade inicial, desaceleração, itens visíveis ao redor, efeito tambor, volta automática à espera, contagem regressiva e os efeitos |
+| Aba **Visual** (só em Preview) | Estilos prontos, fonte, tamanho, posição vertical, nomes longos em duas linhas, contorno, cores e opacidade do fundo |
+| Aba **Textos** (só em Preview) | Título (texto, fonte, tamanho, posição e cor), texto de espera (texto, tamanho e cor), título da tela de ganhadores, maiúsculas e QR code na tela de espera |
 | Aba **Histórico** | Ordem, nome, data e horário de cada sorteado; ausentes aparecem riscados. **×** remove um item, **Copiar lista** copia tudo com os horários, **Zerar histórico** libera todos de novo (dá para desfazer logo em seguida) |
 
 As mudanças aparecem na saída na hora, sem precisar salvar. O painel lembra o último canal e a última aba usados, e o endereço `/?canal=2` abre direto no canal 2.
 
 **Estilos prontos e Restaurar padrão.** Na aba *Visual*, os estilos prontos trocam cores e efeitos de uma vez. As abas *Animação*, *Visual* e *Textos* têm **Restaurar padrão** no fim, que só mexe no estilo daquela aba. Nenhum dos dois toca na lista ou nos textos escritos, e os dois podem ser desfeitos pelo aviso que aparece embaixo.
 
-**Barra de espaço.** Em *Ensaio*, um toque faz o sorteio de teste. Em *Ao vivo*, é preciso **segurar** por meio segundo (o botão vai enchendo), para que uma tecla apertada sem querer não sorteie no ar.
+**Barra de espaço.** Em *Preview*, um toque faz o sorteio de teste. Em *Ao vivo*, é preciso **segurar** por meio segundo (o botão vai enchendo), para que uma tecla apertada sem querer não sorteie no ar.
 
 ### Ausente, sortear de novo
 
@@ -240,7 +240,7 @@ Na aba *Conteúdo*, escolha **Números** e defina o número inicial e o final (p
 
 Com *Não repetir* ligado, cada número sai uma vez só até você zerar o histórico.
 
-## Sorteio de teste (Ensaio)
+## Sorteio de teste (Preview)
 
 Serve para ensaiar a animação e os efeitos antes do evento, ou conferir um ajuste durante ele, **sem ir para o ar**:
 
@@ -248,9 +248,9 @@ Serve para ensaiar a animação e os efeitos antes do evento, ou conferir um aju
 - ele aparece **só nos clips com _Modo prévia (teste)_ ligado**. Os clips normais continuam mostrando o sorteio de verdade, então a saída não muda
 - num clip em modo prévia, os botões *Iniciar sorteio*, *Limpar tela* e *Mostrar ganhadores* passam a valer para o teste, e um aviso **PRÉVIA - TESTE** aparece no canto
 
-<img src="docs/img/painel-celular.png" alt="Painel no celular em modo Ensaio, com o aviso de que nenhum clip em modo prévia está rodando" width="300" align="right">
+<img src="docs/img/painel-celular.png" alt="Painel no celular em modo Preview, com o aviso de que nenhum clip em modo prévia está rodando" width="300" align="right">
 
-No painel web, mude o topo para **Ensaio**: a página fica azul, o palco passa a mostrar o teste exatamente como o clip de prévia mostra, e o botão grande vira **Sorteio de teste**. Se nenhum clip em modo prévia estiver rodando, o painel avisa, como na imagem ao lado.
+No painel web, mude o topo para **Preview**: a página fica azul, o palco passa a mostrar o teste exatamente como o clip de prévia mostra, e o botão grande vira **Sorteio de teste**. Se nenhum clip em modo prévia estiver rodando, o painel avisa, como na imagem ao lado.
 
 O passo a passo para montar está no [tutorial de ensaio](#ensaiar-sem-ir-para-o-ar).
 
@@ -262,7 +262,7 @@ Cada canal tem sua própria lista, configuração e histórico.
 
 - Clips no **mesmo canal** mostram exatamente o mesmo sorteio, em sincronia. Útil para exibir em mais de uma camada ou saída (por exemplo, telão e monitor de retorno)
 - Para dois sorteios diferentes ao mesmo tempo, coloque os clips em **canais diferentes**
-- **Dê um nome** ao canal em *Conteúdo → Este canal*. Ele aparece nas abas do painel, no parâmetro *Canal* do Resolume e na tela de espera
+- **Dê um nome** ao canal em *Conteúdo → Este canal* (no modo Preview). Ele aparece nas abas do painel, no parâmetro *Canal* do Resolume e na tela de espera
 - **Exportar configuração** baixa um arquivo com a lista e todas as configurações do canal; **Importar…** carrega esse arquivo em qualquer canal, inclusive em outro computador (se a fonte não existir lá, usa a padrão)
 - **Copiar visual para lá** leva animação, efeitos, cores, fontes e tamanhos para outro canal, sem mexer na lista nem nos textos
 
@@ -272,7 +272,7 @@ Cada canal tem sua própria lista, configuração e histórico.
 
 1. Monte a lista no Excel ou Google Planilhas, uma pessoa por linha, e cole na aba *Conteúdo*. Se quiser mostrar a cidade ou o número do cupom, use `Nome | detalhe`.
 2. Deixe **Não repetir quem já foi sorteado** ligado, para ninguém ganhar duas vezes.
-3. Escolha a animação. Para suspense, **Rolagem vertical**, duração de 8 a 10 s e desaceleração 4 ou 5; para algo mais festivo, a **Roda da fortuna**. Uma **contagem regressiva** de 3 s ajuda a chamar a atenção do público.
+3. Com o painel em **Preview**, escolha a animação. Para suspense, **Rolagem vertical**, duração de 8 a 10 s e desaceleração 4 ou 5; para algo mais festivo, a **Roda da fortuna**. Uma **contagem regressiva** de 3 s ajuda a chamar a atenção do público.
 4. Escolha um estilo pronto, como **Dourado**, ou ligue os efeitos que combinam com o evento, por exemplo **Confete** e **Brilho**.
 5. Ensaie com o [sorteio de teste](#ensaiar-sem-ir-para-o-ar) antes de abrir as portas.
 6. Na hora, deixe o painel em **Ao vivo** e clique em **Travar**, para ninguém mudar a lista ou o visual por engano.
@@ -284,7 +284,7 @@ Cada canal tem sua própria lista, configuração e histórico.
 
 Para sortear, por exemplo, 5 kits iguais:
 
-1. Em *Conteúdo → Vários ganhadores*, coloque **5** ganhadores por sorteio.
+1. Em **Preview**, na aba *Conteúdo → Vários ganhadores*, coloque **5** ganhadores por sorteio.
 2. Escolha **Um a um** para dar a cada ganhador seu momento (com o tempo de cada um sozinho na tela), ou **Todos em grade** para revelar todos de uma vez.
 3. Clique em **Iniciar sorteio** uma vez só. Os 5 entram no histórico conforme aparecem.
 
@@ -298,7 +298,7 @@ Para destacar o texto sobre fundos claros, aumente o **Contorno** ou ligue o **B
 
 ### Controlar pelo celular
 
-1. Na aba *Textos*, ligue **Mostrar QR code e endereço deste painel na tela de espera**. A saída passa a mostrar um **QR code** no canto e, no rodapé, algo como `Controle web: http://192.168.0.10:8090 (Brindes)`.
+1. Em **Preview**, na aba *Textos*, ligue **Mostrar QR code e endereço deste painel na tela de espera**. A saída passa a mostrar um **QR code** no canto e, no rodapé, algo como `Controle web: http://192.168.0.10:8090 (Brindes)`.
 2. Conecte o celular **na mesma rede Wi-Fi** do computador do Resolume.
 3. Aponte a câmera do celular para o QR code: o painel abre direto no canal daquele clip. Dica: adicione à tela de início para abrir como um app.
 4. Desligue a opção de novo antes de ir para o ar.
@@ -310,9 +310,9 @@ Se não abrir, veja [Solução de problemas](#solução-de-problemas).
 1. Duplique o clip do sorteio (no mesmo canal).
 2. Na cópia, ligue **Modo prévia (teste)**.
 3. Deixe a cópia fora da saída: por exemplo, veja pelo monitor de **Preview** do Resolume, ou ponha numa camada enviada só para o monitor do operador (*Advanced Output*).
-4. No painel web, mude para **Ensaio** e clique em **Sorteio de teste** (ou em *Iniciar sorteio* no clip de prévia).
+4. No painel web, mude para **Preview** e clique em **Sorteio de teste** (ou em *Iniciar sorteio* no clip de prévia).
 5. Ajuste animação e efeitos até ficar bom. Os ajustes valem para o sorteio de verdade, mas o teste não conta no histórico.
-6. Volte para **Ao vivo** antes do evento.
+6. Volte para **Ao vivo** antes do evento. O painel passa a mostrar só a lista, o sorteio e o histórico.
 
 ### Dois sorteios ao mesmo tempo
 
