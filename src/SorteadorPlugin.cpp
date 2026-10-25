@@ -96,7 +96,7 @@ CFFGLPluginInfo PluginInfo(
 	2,
 	1,
 	1,
-	4,
+	5,
 	FF_SOURCE,
 	"Sorteio de nomes e números com animação, controlado pelo painel do Resolume ou pelo navegador.",
 	"Samuel Vieira - Instagram @osamuelvieira.tecnica - github.com/osamuelvieira/sorteador-resolume",

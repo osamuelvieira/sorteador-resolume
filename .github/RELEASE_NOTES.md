@@ -1,38 +1,18 @@
 Plugin FFGL de sorteio de nomes e números para o Resolume Arena/Avenue 7, com controle pelo painel do Resolume e por uma página web.
 
-## Novidades da 1.4
+## Novidades da 1.5
 
-**Novas formas de sortear**
-- **Vários ganhadores por sorteio** (até 20), revelados um a um ou todos juntos em grade
-- Duas animações novas: **roda da fortuna** e **caça-níquel**, com cada dígito parando da esquerda para a direita
-- **Contagem regressiva** "3, 2, 1" antes do giro
-- **Tela de ganhadores** com todos os sorteados até agora
-- `Nome | detalhe` na lista mostra uma segunda linha sob o sorteado (cidade, número do cupom…)
+**Preview e Ao vivo**
+- O modo **Ensaio** agora se chama **Preview** e continua igual: sorteio de teste nos clips em Modo prévia, com todas as configurações disponíveis
+- O **Ao vivo** fica só com a operação do evento: a lista ou os números, *Não repetir*, **vários ganhadores**, o sorteio, o *Ausente* e o histórico. Animação, visual, textos e as opções do canal ficam no Preview, longe de um clique por engano
 
-**Na hora do evento**
-- Modos **Ensaio** e **Ao vivo**: a página fica azul ou vermelha, e no ao vivo a barra de espaço precisa ser segurada
-- Aviso quando nenhum clip do canal está rodando no Resolume
-- **Ausente, sortear de novo**: marca quem não está presente no histórico e sorteia outro na hora
-- **Travar configurações** em todos os painéis abertos
-- **Zerar histórico** agora pode ser desfeito
-- **QR code** na tela de espera para abrir o painel no celular
-- Avisos na lista: nomes repetidos, parecidos ou longos demais
+**Cronômetro do sorteio**
+- No Ao vivo, ao iniciar o sorteio, um cronômetro ao lado do palco mostra quanto falta para o resultado, com a contagem regressiva incluída
+- Com vários ganhadores um a um, mostra também quando sai o próximo ("1º de 3 em 0:11")
+- Fica vermelho nos últimos 3 segundos. Útil para switchers, câmeras e apresentadores saberem a hora do resultado
+- Aparece só no painel, nunca na saída
 
-**Visual**
-- Título com fonte, tamanho, posição e cor próprios; texto de espera com tamanho e cor próprios
-- Nomes longos quebram em duas linhas antes de encolher
-- Efeito tambor na rolagem vertical e volta automática à tela de espera
-- Estilos prontos (Clássico, Dourado, Neon, Minimalista, Bingo) e "Restaurar padrão"
-
-**Painel e canais**
-- Painel novo: palco fixo à esquerda e configurações em abas, também no celular
-- Nomes para os canais ("Brindes", "Rifa"), que aparecem também no Resolume
-- Exportar e importar a configuração de um canal, e copiar o visual de um canal para outro
-
-**Segurança**
-- O painel web só lê fontes das pastas de fontes do sistema, e outros sites abertos no computador não conseguem mais ler ou mudar o sorteio
-
-Quem atualiza mantém o visual e o histórico que já tinha.
+Quem atualiza mantém o visual e o histórico que já tinha. As novidades da 1.4 estão no [release anterior](https://github.com/osamuelvieira/sorteador-resolume/releases/tag/v1.4.0).
 
 ## Instalação no Windows
 

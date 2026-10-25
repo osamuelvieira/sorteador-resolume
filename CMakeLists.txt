@@ -4,7 +4,7 @@ if(APPLE)
 	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "std::filesystem needs macOS 10.15")
 endif()
 
-project(SorteadorResolume VERSION 1.4.0 LANGUAGES C CXX)
+project(SorteadorResolume VERSION 1.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
