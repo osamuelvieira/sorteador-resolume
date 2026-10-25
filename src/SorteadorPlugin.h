@@ -32,6 +32,7 @@ private:
 
 	TextRenderer text;
 	int channel                 = 0;
+	bool preview                = false;// shows and runs the channel's test draw instead of the real one
 	uint64_t seenConfigRevision = 0;
 	std::array< float, 64 > previousEventValue{};
 	std::vector< char > textBuffer;

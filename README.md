@@ -6,7 +6,9 @@ Plugin FFGL para o **Resolume Arena/Avenue 7** que faz sorteios de **nomes** ou 
 - Opção de não repetir quem já saiu, com histórico que continua salvo depois de fechar o Resolume
 - Três animações: **rolagem vertical**, **rolagem horizontal** (letreiro) e **troca no lugar**
 - Ajuste de duração, velocidade inicial, curva de desaceleração e quantidade de itens visíveis ao redor
-- Escolha de fonte, tamanho, posição, cores (texto, sorteado, contorno e fundo), título e texto de espera
+- Escolha de fonte, tamanho, posição, cores (texto, sorteado, contorno e fundo), título e texto de espera, com opção de deixar tudo em letra maiúscula
+- **Efeitos** quando o nome é sorteado: impacto, flash, onda de choque, faíscas, confete e brilho, cada um liga e desliga
+- **Sorteio de teste** para ensaiar animação e efeitos sem ir para o ar e sem contar no histórico
 - Até 4 **canais** independentes, ou seja, sorteios diferentes ao mesmo tempo em camadas diferentes
 - API HTTP simples para botões de Stream Deck / Bitfocus Companion
 
@@ -24,21 +26,19 @@ Plugin FFGL para o **Resolume Arena/Avenue 7** que faz sorteios de **nomes** ou 
 
 ### Pelo painel web
 
-O jeito mais rápido é clicar em **Abrir painel web** nos parâmetros do clip, no Resolume: o navegador abre direto no painel. Para usar em outro aparelho, veja o endereço que aparece no rodapé da saída enquanto o clip está na tela de espera, algo como `Controle web: http://192.168.0.10:8090`, e abra esse endereço em qualquer navegador na mesma rede.
+O jeito mais rápido é clicar em **Abrir painel web** nos parâmetros do clip, no Resolume: o navegador abre direto no painel. Para usar em outro aparelho, ligue **Mostrar endereço deste painel na tela de espera** (vem desligado): o endereço aparece no rodapé da saída, algo como `Controle web: http://192.168.0.10:8090`. Abra esse endereço em qualquer navegador na mesma rede.
 
 No painel você:
 
 - escolhe o canal (abas no topo)
 - cola a lista de nomes ou define a faixa de números
 - ajusta animação, visual e textos (as mudanças aparecem na hora)
-- clica em **Iniciar sorteio** (ou aperta a barra de espaço) e acompanha o resultado ao vivo
-- consulta, copia ou zera o histórico, e remove um sorteado específico, por exemplo se a pessoa não estiver presente
-
-Para desligar o endereço na tela, desmarque **Mostrar endereço deste painel na tela de espera**.
+- clica em **Iniciar sorteio** (ou aperta a barra de espaço) e acompanha na telinha **Ao vivo**, que reproduz a saída com fidelidade: mesma fonte, animação e efeitos, no mesmo tempo
+- consulta o histórico com **data e horário** de cada sorteado, copia a lista (com os horários) para conferência, zera o histórico ou remove um sorteado específico, por exemplo se a pessoa não estiver presente
 
 ### Pelo painel do Resolume
 
-Os mesmos ajustes aparecem como parâmetros do clip, em três grupos (*Sorteio*, *Animação* e *Visual*), além dos botões:
+Os mesmos ajustes aparecem como parâmetros do clip, em três grupos (*Sorteio*, *Animação* com os efeitos, e *Visual*), além dos botões:
 
 | Parâmetro | O que faz |
 |---|---|
@@ -47,11 +47,39 @@ Os mesmos ajustes aparecem como parâmetros do clip, em três grupos (*Sorteio*,
 | **Zerar histórico** | Todos voltam a poder ser sorteados |
 | **Abrir painel web** | Abre o painel no navegador do computador do Resolume, já no canal deste clip |
 | **Canal** | Qual sorteio este clip mostra |
+| **Modo prévia (teste)** | Este clip passa a mostrar só o sorteio de teste (veja abaixo) |
 | **Lista (separe com ;)** | Edição rápida da lista em uma linha: `Ana; Bruno; Carla` |
 
 Os botões podem ser mapeados para MIDI, OSC ou teclado como qualquer parâmetro do Resolume.
 
 Painel web e Resolume mostram sempre os mesmos valores: o que você muda em um aparece no outro.
+
+### Efeitos no resultado
+
+Para o público perceber na hora que o sorteio terminou, o plugin pode disparar efeitos quando o nome para:
+
+| Efeito | O que faz | Padrão |
+|---|---|---|
+| **Impacto** | O nome dá um "soco" de zoom e a tela treme por um instante | ligado |
+| **Flash** | Clarão rápido na tela inteira | ligado |
+| **Onda de choque** | Anéis que se expandem a partir do nome | desligado |
+| **Faíscas** | Faíscas douradas saem do nome | ligado |
+| **Confete** | Chuva de confete colorido por alguns segundos | desligado |
+| **Brilho** | Halo pulsando em volta do nome enquanto ele fica na tela | desligado |
+
+**Intensidade** (20% a 200%) aumenta ou diminui todos de uma vez: quantidade de partículas, força do flash e do tremor. Os efeitos ficam no grupo *Animação* do clip e na seção *Animação* do painel web.
+
+### Sorteio de teste (prévia)
+
+Serve para ensaiar a animação e os efeitos antes do evento, ou conferir um ajuste durante ele, **sem ir para o ar**:
+
+- o teste roda a animação e os efeitos completos, mas **não entra no histórico** e não tira ninguém da lista
+- ele aparece **só nos clips com _Modo prévia (teste)_ ligado**. Os clips normais continuam mostrando o sorteio de verdade, então a saída não muda
+- num clip em modo prévia, os botões *Iniciar sorteio* e *Limpar tela* passam a valer para o teste, e um aviso **PRÉVIA - TESTE** aparece no canto
+
+Como montar: duplique o clip do sorteio, ligue **Modo prévia (teste)** na cópia e deixe a cópia fora da saída, por exemplo vendo pelo monitor de **Preview** do Resolume ou numa camada enviada só para o monitor do operador (*Advanced Output*). Depois é só clicar em **Sorteio de teste** no painel web, ou em *Iniciar sorteio* no clip de prévia.
+
+No painel web, a seção **Sorteio de teste** tem uma telinha própria, ao lado da **Ao vivo**, que mostra o teste exatamente como o clip de prévia mostra.
 
 ### Canais
 
@@ -65,6 +93,8 @@ Qualquer aparelho que faça uma requisição HTTP pode disparar ações:
 http://IP-DO-COMPUTADOR:8090/api/start?canal=1          iniciar
 http://IP-DO-COMPUTADOR:8090/api/clear?canal=1          limpar tela
 http://IP-DO-COMPUTADOR:8090/api/reset-history?canal=1  zerar histórico
+http://IP-DO-COMPUTADOR:8090/api/test?canal=1           sorteio de teste (só nos clips em modo prévia)
+http://IP-DO-COMPUTADOR:8090/api/test/clear?canal=1     limpar o teste
 http://IP-DO-COMPUTADOR:8090/api/state?canal=1          estado atual (JSON)
 ```
 

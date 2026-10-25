@@ -21,27 +21,39 @@ constexpr int kSdfPadding   = 8;    // pixels of distance field around each glyp
 constexpr int kSdfOnEdge    = 160;  // atlas value exactly on the glyph outline
 constexpr float kSdfDistScale = (float)kSdfOnEdge / kSdfPadding;
 constexpr float kEdge         = kSdfOnEdge / 255.0f;
-constexpr int kFloatsPerVertex = 8;
+constexpr int kFloatsPerVertex = 9;
+constexpr double kFirstFontWait = 3.0;// seconds
+
+// Per vertex "kind", telling the fragment shader what it is drawing. Rings add their thickness to kKindRing.
+constexpr float kKindText  = 0.0f;
+constexpr float kKindSolid = 1.0f;
+constexpr float kKindDot   = 2.0f;
+constexpr float kKindGlow  = 3.0f;
+constexpr float kKindRing  = 4.0f;
 
 const char* kVertexShader = R"(#version 410 core
 layout( location = 0 ) in vec2 aPosition;
 layout( location = 1 ) in vec2 aUV;
 layout( location = 2 ) in vec4 aColor;
+layout( location = 3 ) in float aKind;
 uniform vec2 uViewport;
 out vec2 vUV;
 out vec4 vColor;
+out float vKind;
 void main()
 {
 	// Pixel coordinates with the origin at the top left.
 	gl_Position = vec4( aPosition.x / uViewport.x * 2.0 - 1.0, 1.0 - aPosition.y / uViewport.y * 2.0, 0.0, 1.0 );
 	vUV         = aUV;
 	vColor      = aColor;
+	vKind       = aKind;
 }
 )";
 
 const char* kFragmentShader = R"(#version 410 core
 in vec2 vUV;
 in vec4 vColor;
+in float vKind;
 out vec4 fragColor;
 uniform sampler2D uAtlas;
 uniform float uEdge;
@@ -49,13 +61,34 @@ uniform float uOutline;
 uniform vec3 uOutlineColor;
 void main()
 {
-	// Negative uvs mark solid rectangles.
-	if( vUV.x < 0.0 )
+	// Shapes use uv as local coordinates, -1..1 across the quad.
+	if( ( vKind > 0.5 && vKind < 2.5 ) || vKind > 3.5 )
 	{
-		fragColor = vec4( vColor.rgb * vColor.a, vColor.a );
+		float a = vColor.a;
+		float r = length( vUV );
+		if( vKind > 3.5 )
+		{
+			float halfThickness = ( vKind - 4.0 ) * 0.5;
+			float aa            = max( fwidth( r ), 0.001 );
+			a *= 1.0 - smoothstep( halfThickness - aa, halfThickness + aa, abs( r - 1.0 + halfThickness ) );
+		}
+		else if( vKind > 1.5 )
+		{
+			float falloff = clamp( 1.0 - r, 0.0, 1.0 );
+			a *= falloff * falloff;
+		}
+		fragColor = vec4( vColor.rgb * a, a );
 		return;
 	}
 	float d    = texture( uAtlas, vUV ).r;
+	if( vKind > 2.5 )
+	{
+		// Glow: the distance field fades from the outline to the edge of the glyph box.
+		float glow = clamp( d / uEdge, 0.0, 1.0 );
+		float a    = glow * glow * vColor.a;
+		fragColor  = vec4( vColor.rgb * a, a );
+		return;
+	}
 	float aa   = max( fwidth( d ) * 0.75, 0.0001 );
 	float fill = smoothstep( uEdge - aa, uEdge + aa, d );
 	vec3 color = vColor.rgb;
@@ -100,6 +133,49 @@ std::u32string DecodeUtf8( const std::string& s )
 	return out;
 }
 
+void EncodeUtf8( char32_t cp, std::string& out )
+{
+	if( cp < 0x80 )
+		out += (char)cp;
+	else if( cp < 0x800 )
+	{
+		out += (char)( 0xC0 | ( cp >> 6 ) );
+		out += (char)( 0x80 | ( cp & 0x3F ) );
+	}
+	else if( cp < 0x10000 )
+	{
+		out += (char)( 0xE0 | ( cp >> 12 ) );
+		out += (char)( 0x80 | ( ( cp >> 6 ) & 0x3F ) );
+		out += (char)( 0x80 | ( cp & 0x3F ) );
+	}
+	else
+	{
+		out += (char)( 0xF0 | ( cp >> 18 ) );
+		out += (char)( 0x80 | ( ( cp >> 12 ) & 0x3F ) );
+		out += (char)( 0x80 | ( ( cp >> 6 ) & 0x3F ) );
+		out += (char)( 0x80 | ( cp & 0x3F ) );
+	}
+}
+
+char32_t ToUpper( char32_t c )
+{
+	if( c >= U'a' && c <= U'z' )
+		return c - 32;
+	if( c >= 0xE0 && c <= 0xFE && c != 0xF7 )// à..þ, except the division sign
+		return c - 32;
+	if( c == 0xFF )
+		return 0x178;// ÿ
+	if( c == 0x131 )
+		return U'I';// dotless i
+	// Latin Extended-A pairs upper and lower case side by side, with the lower case on odd code points in these
+	// ranges and on even ones in the two ranges after the gaps.
+	if( ( c >= 0x100 && c <= 0x12F ) || ( c >= 0x132 && c <= 0x137 ) || ( c >= 0x14A && c <= 0x177 ) )
+		return c & 1 ? c - 1 : c;
+	if( ( c >= 0x139 && c <= 0x148 ) || ( c >= 0x179 && c <= 0x17E ) )
+		return c & 1 ? c : c - 1;
+	return c;
+}
+
 std::vector< char32_t > AtlasCodepoints()
 {
 	std::vector< char32_t > cps;
@@ -112,6 +188,15 @@ std::vector< char32_t > AtlasCodepoints()
 	return cps;
 }
 }//namespace
+
+std::string ToUpperUtf8( const std::string& utf8 )
+{
+	std::string out;
+	out.reserve( utf8.size() );
+	for( char32_t c : DecodeUtf8( utf8 ) )
+		EncodeUtf8( ToUpper( c ), out );
+	return out;
+}
 
 struct Glyph
 {
@@ -248,6 +333,8 @@ bool TextRenderer::InitGL()
 	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, (void*)( 2 * sizeof( float ) ) );
 	glEnableVertexAttribArray( 2 );
 	glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, stride, (void*)( 4 * sizeof( float ) ) );
+	glEnableVertexAttribArray( 3 );
+	glVertexAttribPointer( 3, 1, GL_FLOAT, GL_FALSE, stride, (void*)( 8 * sizeof( float ) ) );
 	vaoBinding.EndScope();
 
 	glGenTextures( 1, &texture );
@@ -290,9 +377,17 @@ void TextRenderer::RequestFont( const std::string& path )
 	hasPending    = true;
 }
 
+void TextRenderer::Preload( const std::string& path )
+{
+	if( !path.empty() )
+		LoadCached( path );
+}
+
 void TextRenderer::PollFont()
 {
-	if( !hasPending || pending.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::timeout )
+	// Nothing to show yet: wait for the font instead of drawing empty frames.
+	const auto wait = font ? std::chrono::duration< double >( 0.0 ) : std::chrono::duration< double >( kFirstFontWait );
+	if( !hasPending || pending.wait_for( wait ) == std::future_status::timeout )
 		return;
 	hasPending                              = false;
 	std::shared_ptr< const BakedFont > baked = pending.get();
@@ -339,24 +434,61 @@ void TextRenderer::Begin( float width, float height )
 	vertices.clear();
 }
 
-void TextRenderer::PushQuad( float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, const float rgba[ 4 ] )
+void TextRenderer::PushVertex( float x, float y, float u, float v, const float rgba[ 4 ], float kind )
+{
+	vertices.insert( vertices.end(), { x, y, u, v, rgba[ 0 ], rgba[ 1 ], rgba[ 2 ], rgba[ 3 ], kind } );
+}
+
+void TextRenderer::PushQuad( float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, const float rgba[ 4 ], float kind )
 {
 	const float corners[ 6 ][ 4 ] = {
 		{ x0, y0, u0, v0 }, { x1, y0, u1, v0 }, { x1, y1, u1, v1 },
 		{ x0, y0, u0, v0 }, { x1, y1, u1, v1 }, { x0, y1, u0, v1 },
 	};
 	for( const auto& c : corners )
-	{
-		vertices.insert( vertices.end(), { c[ 0 ], c[ 1 ], c[ 2 ], c[ 3 ], rgba[ 0 ], rgba[ 1 ], rgba[ 2 ], rgba[ 3 ] } );
-	}
+		PushVertex( c[ 0 ], c[ 1 ], c[ 2 ], c[ 3 ], rgba, kind );
 }
 
 void TextRenderer::AddRect( float x0, float y0, float x1, float y1, const float rgba[ 4 ] )
 {
-	PushQuad( x0, y0, x1, y1, -1.0f, -1.0f, -1.0f, -1.0f, rgba );
+	PushQuad( x0, y0, x1, y1, -1.0f, -1.0f, 1.0f, 1.0f, rgba, kKindSolid );
+}
+
+void TextRenderer::AddShape( Shape shape, float centerX, float centerY, float halfWidth, float halfHeight, float angle, const float rgba[ 4 ],
+                             float thickness )
+{
+	if( rgba[ 3 ] <= 0.0f || halfWidth <= 0.0f || halfHeight <= 0.0f )
+		return;
+	float kind = kKindSolid;
+	if( shape == Shape::Dot )
+		kind = kKindDot;
+	else if( shape == Shape::Ring )
+		kind = kKindRing + std::min( 0.99f, std::max( 0.01f, thickness ) );
+
+	const float c = std::cos( angle ), s = std::sin( angle );
+	const float local[ 4 ][ 2 ] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+	float x[ 4 ], y[ 4 ];
+	for( int i = 0; i < 4; ++i )
+	{
+		float lx = local[ i ][ 0 ] * halfWidth, ly = local[ i ][ 1 ] * halfHeight;
+		x[ i ]   = centerX + lx * c - ly * s;
+		y[ i ]   = centerY + lx * s + ly * c;
+	}
+	for( int i : { 0, 1, 2, 0, 2, 3 } )
+		PushVertex( x[ i ], y[ i ], local[ i ][ 0 ], local[ i ][ 1 ], rgba, kind );
 }
 
 void TextRenderer::AddText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] )
+{
+	AddGlyphs( utf8, centerX, centerY, sizePx, rgba, kKindText );
+}
+
+void TextRenderer::AddGlowText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] )
+{
+	AddGlyphs( utf8, centerX, centerY, sizePx, rgba, kKindGlow );
+}
+
+void TextRenderer::AddGlyphs( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float kind )
 {
 	if( !font || rgba[ 3 ] <= 0.0f || sizePx <= 0.0f )
 		return;
@@ -373,7 +505,7 @@ void TextRenderer::AddText( const std::string& utf8, float centerX, float center
 		{
 			float x0 = penX + glyph->x0 * s;
 			float y0 = baseline + glyph->y0 * s;
-			PushQuad( x0, y0, x0 + glyph->width * s, y0 + glyph->height * s, glyph->u0, glyph->v0, glyph->u1, glyph->v1, rgba );
+			PushQuad( x0, y0, x0 + glyph->width * s, y0 + glyph->height * s, glyph->u0, glyph->v0, glyph->u1, glyph->v1, rgba, kind );
 		}
 		penX += glyph->advance * s;
 		if( i + 1 < text.size() )

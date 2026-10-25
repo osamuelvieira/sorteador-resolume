@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <ctime>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -10,7 +11,6 @@ namespace sorteador
 {
 namespace
 {
-constexpr long long kReelPad          = kMaxNeighbors + 2;
 constexpr long long kMinDistance      = 8;
 constexpr long long kMaxDistance      = 20000;
 constexpr long long kMaxEnumerated    = 200000;// number ranges up to this size are enumerated exactly
@@ -80,8 +80,8 @@ std::vector< std::string > Channel::AvailableItems() const
 
 	// Each history entry consumes one occurrence, so duplicated names in the list can each be drawn once.
 	std::unordered_map< std::string, int > drawn;
-	for( const std::string& h : history )
-		++drawn[ h ];
+	for( const HistoryEntry& h : history )
+		++drawn[ h.text ];
 	std::vector< std::string > available;
 	for( const std::string& item : items )
 	{
@@ -102,7 +102,9 @@ size_t Channel::AvailableCount() const
 	long long count = (long long)config.numMax - config.numMin + 1;
 	if( !config.noRepeat )
 		return (size_t)count;
-	std::set< std::string > drawn( history.begin(), history.end() );
+	std::set< std::string > drawn;
+	for( const HistoryEntry& h : history )
+		drawn.insert( h.text );
 	long long used = 0;
 	for( long long v = config.numMin; v <= config.numMax && count <= kMaxEnumerated; ++v )
 		used += drawn.count( FormatNumber( v ) );
@@ -121,7 +123,9 @@ bool Channel::PickAvailableNumber( long long& out )
 		return true;
 	}
 
-	std::unordered_set< std::string > drawn( history.begin(), history.end() );
+	std::unordered_set< std::string > drawn;
+	for( const HistoryEntry& h : history )
+		drawn.insert( h.text );
 	if( count <= kMaxEnumerated )
 	{
 		std::vector< long long > available;
@@ -144,12 +148,14 @@ bool Channel::PickAvailableNumber( long long& out )
 	return false;
 }
 
-bool Channel::Start( double now )
+bool Channel::Start( double now, bool test )
 {
-	if( phase == Phase::Spinning )
+	Run& r = test ? testRun : run;
+	if( r.phase == Phase::Spinning )
 		return false;
 
 	std::vector< std::string > pool;
+	std::string winner;
 	if( config.mode == DrawMode::List )
 	{
 		std::vector< std::string > items = Items();
@@ -160,6 +166,9 @@ bool Channel::Start( double now )
 			return false;
 		}
 		std::vector< std::string > available = AvailableItems();
+		// A test still works when everyone was drawn, it just picks from the whole list.
+		if( available.empty() && test )
+			available = items;
 		if( available.empty() )
 		{
 			message = "Todos os itens já foram sorteados.";
@@ -175,9 +184,13 @@ bool Channel::Start( double now )
 		long long value = 0;
 		if( !PickAvailableNumber( value ) )
 		{
-			message = "Todos os números já foram sorteados.";
-			Touch();
-			return false;
+			if( !test )
+			{
+				message = "Todos os números já foram sorteados.";
+				Touch();
+				return false;
+			}
+			value = std::uniform_int_distribution< long long >( config.numMin, config.numMax )( rng );
 		}
 		winner = FormatNumber( value );
 	}
@@ -190,10 +203,10 @@ bool Channel::Start( double now )
 	const bool canVary = config.mode == DrawMode::Numbers ? config.numMax > config.numMin : pool.size() > 1;
 
 	// The easing 1 - (1 - x)^k starts with a slope of k, so this distance gives the configured initial speed.
-	distance = std::llround( config.speed * config.duration / config.decel );
-	distance = std::min( kMaxDistance, std::max( kMinDistance, distance ) );
+	long long distance = std::llround( config.speed * config.duration / config.decel );
+	distance           = std::min( kMaxDistance, std::max( kMinDistance, distance ) );
 
-	reel.assign( (size_t)( distance + 2 * kReelPad + 1 ), std::string() );
+	std::vector< std::string > reel( (size_t)( distance + 2 * kReelPad + 1 ), std::string() );
 	const size_t winnerSlot = (size_t)( kReelPad + distance );
 	for( size_t i = 0; i < reel.size(); ++i )
 	{
@@ -215,10 +228,15 @@ bool Channel::Start( double now )
 		reel[ i ] = entry;
 	}
 
-	startTime = now;
-	spinTime  = config.duration;
-	decel     = config.decel;
-	phase     = Phase::Spinning;
+	r.serial    = ++serial;
+	r.winner    = winner;
+	r.reel      = std::move( reel );
+	r.distance  = distance;
+	r.startTime = now;
+	r.spinTime  = config.duration;
+	r.decel     = config.decel;
+	r.seed      = (uint32_t)rng();
+	r.phase     = Phase::Spinning;
 	message.clear();
 	Touch();
 	return true;
@@ -226,17 +244,22 @@ bool Channel::Start( double now )
 
 void Channel::Tick( double now )
 {
-	if( phase == Phase::Spinning && now >= startTime + spinTime )
+	if( run.phase == Phase::Spinning && now >= run.startTime + run.spinTime )
 	{
-		phase = Phase::Result;
-		history.push_back( winner );
+		run.phase = Phase::Result;
+		history.push_back( { run.winner, (int64_t)std::time( nullptr ) } );
+		Touch();
+	}
+	if( testRun.phase == Phase::Spinning && now >= testRun.startTime + testRun.spinTime )
+	{
+		testRun.phase = Phase::Result;
 		Touch();
 	}
 }
 
-void Channel::Clear()
+void Channel::Clear( bool test )
 {
-	phase = Phase::Idle;
+	( test ? testRun : run ).phase = Phase::Idle;
 	message.clear();
 	Touch();
 }
@@ -257,18 +280,19 @@ void Channel::RemoveHistory( size_t index )
 	}
 }
 
-void Channel::SetHistory( std::vector< std::string > newHistory )
+void Channel::SetHistory( std::vector< HistoryEntry > newHistory )
 {
 	history = std::move( newHistory );
 	Touch();
 }
 
-double Channel::Progress( double now ) const
+double Channel::Progress( double now, bool test ) const
 {
-	switch( phase )
+	const Run& r = GetRun( test );
+	switch( r.phase )
 	{
 	case Phase::Spinning:
-		return Clamp01( ( now - startTime ) / spinTime );
+		return Clamp01( ( now - r.startTime ) / r.spinTime );
 	case Phase::Result:
 		return 1.0;
 	default:
@@ -276,38 +300,51 @@ double Channel::Progress( double now ) const
 	}
 }
 
-double Channel::ReelPosition( double now ) const
+namespace
 {
-	double x = Clamp01( ( now - startTime ) / spinTime );
-	return (double)distance * ( 1.0 - std::pow( 1.0 - x, decel ) );
+double ReelPosition( const Run& r, double now )
+{
+	double x = Clamp01( ( now - r.startTime ) / r.spinTime );
+	return (double)r.distance * ( 1.0 - std::pow( 1.0 - x, r.decel ) );
 }
 
-const std::string& Channel::ReelAt( long long index ) const
+const std::string& ReelAt( const Run& r, long long index )
 {
-	long long i = std::min( (long long)reel.size() - 1, std::max( 0LL, index + kReelPad ) );
-	return reel[ (size_t)i ];
+	long long i = std::min( (long long)r.reel.size() - 1, std::max( 0LL, index + kReelPad ) );
+	return r.reel[ (size_t)i ];
+}
+}//namespace
+
+nlohmann::json HistoryToJson( const std::vector< HistoryEntry >& history )
+{
+	nlohmann::json out = nlohmann::json::array();
+	for( const HistoryEntry& h : history )
+		out.push_back( { { "name", h.text }, { "time", h.time } } );
+	return out;
 }
 
-FrameView Channel::BuildFrame( double now ) const
+FrameView Channel::BuildFrame( double now, bool test ) const
 {
+	const Run& r = GetRun( test );
 	FrameView frame;
 	frame.config = config;
-	frame.phase  = phase;
+	frame.phase  = r.phase;
+	frame.seed   = r.seed;
 
 	const int k          = config.neighbors;
 	const bool showsReel = config.animation != Animation::Flip;
 
-	if( phase == Phase::Idle )
+	if( r.phase == Phase::Idle )
 	{
 		if( !config.idleText.empty() )
 			frame.items.push_back( { config.idleText } );
 	}
-	else if( phase == Phase::Spinning )
+	else if( r.phase == Phase::Spinning )
 	{
-		double position = ReelPosition( now );
+		double position = ReelPosition( r, now );
 		if( !showsReel )
 		{
-			frame.items.push_back( { ReelAt( std::llround( position ) ) } );
+			frame.items.push_back( { ReelAt( r, std::llround( position ) ) } );
 		}
 		else
 		{
@@ -317,15 +354,16 @@ FrameView Channel::BuildFrame( double now ) const
 				float offset = (float)( i - position );
 				float alpha  = 1.0f - std::fabs( offset ) / ( k + 1 );
 				if( alpha > 0.0f )
-					frame.items.push_back( { ReelAt( i ), offset, alpha } );
+					frame.items.push_back( { ReelAt( r, i ), offset, alpha } );
 			}
 		}
 	}
 	else
 	{
-		double sinceResult = now - ( startTime + spinTime );
+		double sinceResult = now - ( r.startTime + r.spinTime );
+		frame.sinceResult  = (float)sinceResult;
 		VisibleItem item;
-		item.text      = winner;
+		item.text      = r.winner;
 		item.winnerMix = (float)Clamp01( sinceResult / kHighlightTime );
 		item.scale     = 1.0f + 0.18f * (float)std::sin( kPi * Clamp01( sinceResult / kPulseTime ) );
 
@@ -336,7 +374,7 @@ FrameView Channel::BuildFrame( double now ) const
 			{
 				float alpha = ( 1.0f - std::fabs( (float)d ) / ( k + 1 ) ) * fade;
 				if( d != 0 && alpha > 0.0f )
-					frame.items.push_back( { ReelAt( distance + d ), (float)d, alpha } );
+					frame.items.push_back( { ReelAt( r, r.distance + d ), (float)d, alpha } );
 			}
 		}
 		frame.items.push_back( item );

@@ -131,7 +131,9 @@ int main( int argc, char** argv )
 		return 1;
 	}
 
-	// The font is baked in the background, give it a moment.
+	// The very first frame is what Resolume uses as the thumbnail, so it must already show text.
+	Render();
+	Save( out + "/0-primeiro-quadro.ppm" );
 	RenderFor( 2.0 );
 	Save( out + "/0-espera.ppm" );
 
@@ -149,14 +151,16 @@ int main( int argc, char** argv )
 	{
 		SetFloat( 0, 1.0f );// "Iniciar sorteio" pressed...
 		SetFloat( 0, 0.0f );// ...and released
-		double marks[] = { 0.4, 1.5, 3.0, 5.5, 6.3, 7.5 };
-		double elapsed = 0.0;
+		// With the default 6 s duration, the later marks show the effects right after the winner lands.
+		// Marks count from the press, so the time spent saving frames does not push the later ones back.
+		double marks[] = { 0.4, 1.5, 3.0, 5.5, 6.05, 6.15, 6.3, 6.6, 7.5 };
+		auto start     = std::chrono::steady_clock::now();
 		for( double mark : marks )
 		{
+			double elapsed = std::chrono::duration< double >( std::chrono::steady_clock::now() - start ).count();
 			RenderFor( mark - elapsed );
-			elapsed = mark;
 			char name[ 64 ];
-			std::snprintf( name, sizeof( name ), "/1-sorteio-%.1fs.ppm", mark );
+			std::snprintf( name, sizeof( name ), "/1-sorteio-%.2fs.ppm", mark );
 			Save( out + name );
 		}
 	}

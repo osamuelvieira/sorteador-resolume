@@ -61,7 +61,7 @@ static void TestFullDraw()
 
 	c.Tick( now + 3.01 );
 	CHECK( c.GetPhase() == Phase::Result );
-	CHECK( c.GetHistory().size() == 1 && c.GetHistory()[ 0 ] == c.GetWinner() );
+	CHECK( c.GetHistory().size() == 1 && c.GetHistory()[ 0 ].text == c.GetWinner() && c.GetHistory()[ 0 ].time > 0 );
 	FrameView result = c.BuildFrame( now + 4.0 );
 	CHECK( CenterItem( result )->text == c.GetWinner() );
 	CHECK( CenterItem( result )->winnerMix == 1.0f );
@@ -139,17 +139,53 @@ static void TestEmptyList()
 	CHECK( c.GetPhase() == Phase::Idle );
 }
 
+static void TestTestDraw()
+{
+	Channel c;
+	c.config.listText = "Ana\nBruno";
+	c.config.duration = 1.0f;
+	double now        = 0.0;
+	Draw( c, now );
+	Draw( c, now );
+	CHECK( c.AvailableCount() == 0 );
+
+	// A test still runs when everyone was drawn, and leaves the real draw and the history alone.
+	CHECK( c.Start( now, true ) );
+	CHECK( c.GetPhase( true ) == Phase::Spinning );
+	CHECK( c.GetPhase() == Phase::Result );
+	c.Tick( now + 1.01 );
+	CHECK( c.GetPhase( true ) == Phase::Result );
+	CHECK( c.GetHistory().size() == 2 );
+	CHECK( CenterItem( c.BuildFrame( now + 2.0, true ) )->text == c.GetWinner( true ) );
+	CHECK( c.BuildFrame( now + 2.0, true ).sinceResult > 0.9f );
+	CHECK( c.BuildFrame( now + 2.0 ).items.back().text == c.GetWinner() );
+
+	c.Clear( true );
+	CHECK( c.GetPhase( true ) == Phase::Idle );
+	CHECK( c.GetPhase() == Phase::Result );
+}
+
 static void TestJson()
 {
 	DrawConfig a;
 	a.listText  = "X\nY";
-	a.duration  = 12.5f;
+	a.duration  = 12.0f;
+	a.uppercase = true;
 	a.animation = Animation::Flip;
 	a.textColor = { 0.1f, 0.2f, 0.3f };
 	DrawConfig b;
+	a.fxConfetti  = true;
+	a.fxFlash     = false;
+	a.fxIntensity = 1.5f;
 	MergeJson( b, ToJson( a ) );
+	CHECK( b.fxConfetti && !b.fxFlash && b.fxIntensity == 1.5f );
 	CHECK( b.listText == "X\nY" );
-	CHECK( b.duration == 12.5f );
+	CHECK( b.duration == 12.0f );
+	CHECK( b.uppercase );
+
+	// Duration and deceleration are whole numbers.
+	MergeJson( b, { { "duration", 7.6 }, { "decel", 2.4 } } );
+	CHECK( b.duration == 8.0f && b.decel == 2.0f );
 	CHECK( b.animation == Animation::Flip );
 	CHECK( std::fabs( b.textColor.g - 0.2f ) < 1e-6f );
 
@@ -168,6 +204,7 @@ int main()
 	TestNumbers();
 	TestRepeatAllowed();
 	TestEmptyList();
+	TestTestDraw();
 	TestJson();
 	if( failures == 0 )
 		std::printf( "Todos os testes passaram.\n" );

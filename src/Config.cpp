@@ -1,5 +1,6 @@
 #include "Config.h"
 #include <algorithm>
+#include <cmath>
 
 using nlohmann::json;
 
@@ -51,14 +52,15 @@ void Sanitize( DrawConfig& c )
 		c.animation = Animation::Vertical;
 	if( c.numMin > c.numMax )
 		std::swap( c.numMin, c.numMax );
-	c.duration  = std::min( 60.0f, std::max( 0.5f, c.duration ) );
+	c.duration  = std::min( 60.0f, std::max( 1.0f, std::round( c.duration ) ) );
 	c.speed     = std::min( 100.0f, std::max( 2.0f, c.speed ) );
-	c.decel     = std::min( 8.0f, std::max( 1.0f, c.decel ) );
+	c.decel     = std::min( 8.0f, std::max( 1.0f, std::round( c.decel ) ) );
 	c.neighbors = std::min( kMaxNeighbors, std::max( 0, c.neighbors ) );
 	c.textSize  = std::min( 0.6f, std::max( 0.02f, c.textSize ) );
 	c.posY      = Clamp01( c.posY );
 	c.outline   = Clamp01( c.outline );
 	c.bgOpacity = Clamp01( c.bgOpacity );
+	c.fxIntensity = std::min( 2.0f, std::max( 0.2f, c.fxIntensity ) );
 	ClampColor( c.textColor );
 	ClampColor( c.winnerColor );
 	ClampColor( c.outlineColor );
@@ -90,7 +92,15 @@ json ToJson( const DrawConfig& c )
 		{ "bgOpacity", c.bgOpacity },
 		{ "title", c.title },
 		{ "idleText", c.idleText },
+		{ "uppercase", c.uppercase },
 		{ "showAddress", c.showAddress },
+		{ "fxImpact", c.fxImpact },
+		{ "fxFlash", c.fxFlash },
+		{ "fxShockwave", c.fxShockwave },
+		{ "fxSparks", c.fxSparks },
+		{ "fxConfetti", c.fxConfetti },
+		{ "fxGlow", c.fxGlow },
+		{ "fxIntensity", c.fxIntensity },
 	};
 }
 
@@ -125,7 +135,15 @@ void MergeJson( DrawConfig& c, const json& j )
 	Read( j, "bgOpacity", c.bgOpacity );
 	Read( j, "title", c.title );
 	Read( j, "idleText", c.idleText );
+	Read( j, "uppercase", c.uppercase );
 	Read( j, "showAddress", c.showAddress );
+	Read( j, "fxImpact", c.fxImpact );
+	Read( j, "fxFlash", c.fxFlash );
+	Read( j, "fxShockwave", c.fxShockwave );
+	Read( j, "fxSparks", c.fxSparks );
+	Read( j, "fxConfetti", c.fxConfetti );
+	Read( j, "fxGlow", c.fxGlow );
+	Read( j, "fxIntensity", c.fxIntensity );
 	Sanitize( c );
 }
 

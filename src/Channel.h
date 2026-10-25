@@ -29,9 +29,36 @@ struct FrameView
 	DrawConfig config;
 	Phase phase = Phase::Idle;
 	std::vector< VisibleItem > items;
+	float sinceResult = -1.0f;// seconds since the winner landed, negative before that
+	uint32_t seed     = 0;    // changes on every draw, so the effects never repeat exactly
 };
 
-// A drawing channel: its settings, the running draw and the history of winners.
+// The reel has this many extra entries before and after the visible part, so neighbors are always available.
+constexpr long long kReelPad = kMaxNeighbors + 2;
+
+// One draw: the reel the animation scrolls through and where it stops.
+struct Run
+{
+	uint64_t serial = 0;// changes on every start, so the web panel knows when to fetch the new reel
+	Phase phase     = Phase::Idle;
+	std::string winner;
+	// reel[ reelPad + distance ] is the winner.
+	std::vector< std::string > reel;
+	long long distance = 0;
+	double startTime   = 0.0;
+	double spinTime    = 0.0;
+	double decel       = 3.0;
+	uint32_t seed      = 0;
+};
+
+struct HistoryEntry
+{
+	std::string text;
+	int64_t time = 0;// when it was drawn, in seconds since 1970 (UTC); 0 for entries saved before 1.2
+};
+
+// A drawing channel: its settings, the running draw and the history of winners. Next to the real draw it keeps a
+// test draw, which only previews show and which never touches the history.
 // Not thread safe on its own, ChannelManager guards every access with its mutex.
 class Channel
 {
@@ -41,25 +68,26 @@ public:
 	DrawConfig config;
 
 	// Starts a draw. Returns false (and sets the message) if there is nothing left to draw.
-	bool Start( double now );
+	bool Start( double now, bool test = false );
 	// Advances the state machine, moving a finished spin into the result phase.
 	void Tick( double now );
-	void Clear();
+	void Clear( bool test = false );
 	void ResetHistory();
 	void RemoveHistory( size_t index );
 
-	FrameView BuildFrame( double now ) const;
+	FrameView BuildFrame( double now, bool test = false ) const;
 
 	std::vector< std::string > Items() const;
 	// How many entries can still be drawn, honoring the no-repeat setting.
 	size_t AvailableCount() const;
 
-	Phase GetPhase() const { return phase; }
-	const std::string& GetWinner() const { return winner; }
+	const Run& GetRun( bool test = false ) const { return test ? testRun : run; }
+	Phase GetPhase( bool test = false ) const { return GetRun( test ).phase; }
+	const std::string& GetWinner( bool test = false ) const { return GetRun( test ).winner; }
 	const std::string& GetMessage() const { return message; }
-	const std::vector< std::string >& GetHistory() const { return history; }
-	void SetHistory( std::vector< std::string > newHistory );
-	double Progress( double now ) const;
+	const std::vector< HistoryEntry >& GetHistory() const { return history; }
+	void SetHistory( std::vector< HistoryEntry > newHistory );
+	double Progress( double now, bool test = false ) const;
 
 	// Bumped on every change, so pollers and Resolume parameters know when to refresh.
 	uint64_t revision       = 1;
@@ -71,21 +99,15 @@ private:
 	std::string FormatNumber( long long value ) const;
 	std::vector< std::string > AvailableItems() const;
 	bool PickAvailableNumber( long long& out );
-	const std::string& ReelAt( long long index ) const;
-	double ReelPosition( double now ) const;
-
 	std::mt19937_64 rng;
-	Phase phase = Phase::Idle;
-	std::string winner;
 	std::string message;
-	std::vector< std::string > history;
-
-	// The reel is the sequence of texts the animation scrolls through; reel[ reelPad + distance ] is the winner.
-	std::vector< std::string > reel;
-	long long distance = 0;
-	double startTime   = 0.0;
-	double spinTime    = 0.0;
-	double decel       = 3.0;
+	std::vector< HistoryEntry > history;
+	uint64_t serial = 0;
+	Run run;
+	Run testRun;
 };
+
+// [ { "name": ..., "time": ... } ], the format of the saved state and of the web API.
+nlohmann::json HistoryToJson( const std::vector< HistoryEntry >& history );
 
 }//namespace sorteador

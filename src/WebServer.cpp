@@ -76,6 +76,35 @@ int ChannelFromRequest( const httplib::Request& req )
 	}
 }
 
+// The text closest to the center slot is what the audience is reading right now.
+std::string CenterText( const FrameView& frame )
+{
+	std::string display;
+	float best = 1e9f;
+	for( const VisibleItem& item : frame.items )
+		if( std::fabs( item.offset ) < best )
+		{
+			best    = std::fabs( item.offset );
+			display = item.text;
+		}
+	return display;
+}
+
+// Everything the web panel needs to replay a draw on its own, in step with the output. The reel itself is fetched
+// separately (/api/reel) only when the serial changes.
+json RunJson( const Run& r )
+{
+	return json{
+		{ "serial", r.serial },     { "phase", PhaseName( r.phase ) }, { "startTime", r.startTime }, { "spinTime", r.spinTime },
+		{ "decel", r.decel },       { "distance", r.distance },        { "seed", r.seed },           { "winner", r.winner },
+	};
+}
+
+bool TestFromRequest( const httplib::Request& req )
+{
+	return req.has_param( "teste" ) && req.get_param_value( "teste" ) == "1";
+}
+
 void SendJson( httplib::Response& res, const json& body, int status = 200 )
 {
 	res.status = status;
@@ -123,23 +152,23 @@ void WebServer::RegisterRoutes()
 	auto stateJson = [ this ]( int channel ) {
 		double now = ChannelManager::Now();
 		json state = manager.With( channel, [ now ]( Channel& c ) {
-			FrameView frame = c.BuildFrame( now );
-			// The text closest to the center slot is what the audience is reading right now.
-			std::string display;
-			float best = 1e9f;
-			for( const VisibleItem& item : frame.items )
-				if( std::fabs( item.offset ) < best )
-				{
-					best    = std::fabs( item.offset );
-					display = item.text;
-				}
 			return json{
 				{ "phase", PhaseName( c.GetPhase() ) },
 				{ "progress", c.Progress( now ) },
 				{ "winner", c.GetPhase() == Phase::Result ? c.GetWinner() : std::string() },
-				{ "display", display },
+				{ "display", CenterText( c.BuildFrame( now ) ) },
+				{ "test",
+				  {
+					  { "phase", PhaseName( c.GetPhase( true ) ) },
+					  { "progress", c.Progress( now, true ) },
+					  { "winner", c.GetPhase( true ) == Phase::Result ? c.GetWinner( true ) : std::string() },
+					  { "display", CenterText( c.BuildFrame( now, true ) ) },
+				  } },
 				{ "message", c.GetMessage() },
-				{ "history", c.GetHistory() },
+				{ "history", HistoryToJson( c.GetHistory() ) },
+				{ "now", now },
+				{ "run", RunJson( c.GetRun() ) },
+				{ "testRun", RunJson( c.GetRun( true ) ) },
 				{ "available", c.AvailableCount() },
 				{ "total", c.config.mode == DrawMode::List ? (long long)c.Items().size() : (long long)c.config.numMax - c.config.numMin + 1 },
 				{ "revision", c.revision },
@@ -202,10 +231,37 @@ void WebServer::RegisterRoutes()
 
 	action( "/api/start", []( Channel& c, const httplib::Request& ) { c.Start( ChannelManager::Now() ); } );
 	action( "/api/clear", []( Channel& c, const httplib::Request& ) { c.Clear(); } );
+	// Test draws only show on clips in preview mode and never touch the history.
+	action( "/api/test", []( Channel& c, const httplib::Request& ) { c.Start( ChannelManager::Now(), true ); } );
+	action( "/api/test/clear", []( Channel& c, const httplib::Request& ) { c.Clear( true ); } );
 	action( "/api/reset-history", []( Channel& c, const httplib::Request& ) { c.ResetHistory(); } );
 	action( "/api/history/remove", []( Channel& c, const httplib::Request& req ) {
 		if( req.has_param( "index" ) )
 			c.RemoveHistory( (size_t)std::strtoul( req.get_param_value( "index" ).c_str(), nullptr, 10 ) );
+	} );
+
+	http->Get( "/api/reel", [ this ]( const httplib::Request& req, httplib::Response& res ) {
+		const bool test = TestFromRequest( req );
+		json reel       = manager.With( ChannelFromRequest( req ), [ test ]( Channel& c ) {
+			const Run& r = c.GetRun( test );
+			return json{ { "serial", r.serial }, { "pad", kReelPad }, { "reel", r.reel } };
+		} );
+		SendJson( res, reel );
+	} );
+
+	// The font the output uses, so the panel draws with the same letters. Only the channel's own font is served,
+	// never an arbitrary path.
+	http->Get( "/api/font", [ this ]( const httplib::Request& req, httplib::Response& res ) {
+		std::string path = manager.With( ChannelFromRequest( req ), []( Channel& c ) { return c.config.fontPath; } );
+		if( path.empty() )
+			path = DefaultFontPath();
+		std::vector< unsigned char > bytes;
+		if( path.empty() || !ReadFile( PathFromUtf8( path ), bytes ) )
+		{
+			res.status = 404;
+			return;
+		}
+		res.set_content( reinterpret_cast< const char* >( bytes.data() ), bytes.size(), "application/octet-stream" );
 	} );
 
 	http->Get( "/api/fonts", []( const httplib::Request&, httplib::Response& res ) {

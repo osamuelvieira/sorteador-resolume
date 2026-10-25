@@ -50,23 +50,19 @@
   }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
 
-  .stage {
-    position: relative; overflow: hidden;
-    background: #000; border-radius: 10px; aspect-ratio: 16 / 6;
-    display: flex; align-items: center; justify-content: center; text-align: center;
-    margin-bottom: 14px; padding: 0 16px;
-  }
-  #display { font-size: clamp(28px, 7vw, 64px); font-weight: 800; line-height: 1.1; word-break: break-word; }
-  #display.result { color: var(--accent); }
-  .phase { position: absolute; top: 10px; left: 12px; font-size: 12px; color: var(--muted); }
-  .progress { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--accent); width: 0; transition: width .2s linear; }
+  /* The stage is a canvas that draws exactly what the output shows, at the output's 16:9 shape. */
+  .stage { position: relative; overflow: hidden; background: #000; border-radius: 10px; aspect-ratio: 16 / 9; margin-bottom: 14px; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .phase { position: absolute; top: 8px; right: 10px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 6px; }
+  h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .progress { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--accent); width: 0; }
   .message { color: var(--danger); min-height: 1.4em; margin: -4px 0 10px; font-size: 14px; }
   .actions { display: flex; gap: 10px; flex-wrap: wrap; }
   button.primary, button.secondary, button.ghost {
     font: inherit; font-weight: 600; border-radius: 10px; cursor: pointer; padding: 12px 18px; border: 1px solid transparent;
   }
   button.primary { background: var(--accent); color: var(--accent-ink); flex: 1 1 220px; font-size: 18px; padding: 16px; }
-  button.primary:disabled { opacity: .5; cursor: default; }
+  button.primary:disabled, button.secondary:disabled { opacity: .5; cursor: default; }
   button.secondary { background: var(--panel-2); color: var(--text); border-color: var(--line); }
   button.ghost { background: none; color: var(--muted); border-color: var(--line); padding: 8px 12px; font-weight: 500; font-size: 13px; }
 
@@ -99,6 +95,7 @@
   ol#history li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   ol#history li .n { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.2em; }
   ol#history li .name { flex: 1; overflow-wrap: anywhere; }
+  ol#history li time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   ol#history li button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
   ol#history li button:hover { color: var(--danger); }
   .empty { color: var(--muted); font-size: 14px; }
@@ -115,16 +112,32 @@
 </header>
 
 <main>
-  <section class="wide">
+  <section>
+    <h2>Ao vivo</h2>
     <div class="stage">
-      <span class="phase" id="phase">Aguardando</span>
-      <div id="display">—</div>
-      <div class="progress" id="progress"></div>
+      <canvas id="liveCanvas"></canvas>
+      <span class="phase" id="livePhase">Aguardando</span>
+      <div class="progress" id="liveProgress"></div>
     </div>
     <div class="message" id="message"></div>
     <div class="actions">
       <button class="primary" id="start">Iniciar sorteio</button>
       <button class="secondary" id="clear">Limpar tela</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sorteio de teste</h2>
+    <div class="stage">
+      <canvas id="testCanvas"></canvas>
+      <span class="phase" id="testPhase">Aguardando</span>
+      <div class="progress" id="testProgress"></div>
+    </div>
+    <p class="hint">Roda a animação e os efeitos completos, mas <strong>não vai para o ar</strong> e não conta no histórico.
+      Aparece só nos clips com <strong>Modo prévia (teste)</strong> ligado: veja no monitor de Preview do Resolume.</p>
+    <div class="actions">
+      <button class="secondary" id="test">Sorteio de teste</button>
+      <button class="ghost" id="testClear">Limpar teste</button>
     </div>
   </section>
 
@@ -157,15 +170,26 @@
       <button data-value="1">Horizontal</button>
       <button data-value="2">No lugar</button>
     </div>
-    <label class="field"><span>Duração <output data-for="duration" data-unit=" s" data-digits="1"></output></span>
-      <input type="range" data-key="duration" min="0.5" max="60" step="0.5"></label>
+    <label class="field"><span>Duração <output data-for="duration" data-unit=" s" data-digits="0"></output></span>
+      <input type="range" data-key="duration" min="1" max="60" step="1"></label>
     <label class="field"><span>Velocidade inicial <output data-for="speed" data-unit=" itens/s" data-digits="0"></output></span>
       <input type="range" data-key="speed" min="2" max="100" step="1"></label>
-    <label class="field"><span>Desaceleração <output data-for="decel" data-digits="1"></output></span>
-      <input type="range" data-key="decel" min="1" max="8" step="0.1"></label>
+    <label class="field"><span>Desaceleração <output data-for="decel" data-digits="0"></output></span>
+      <input type="range" data-key="decel" min="1" max="8" step="1"></label>
     <p class="hint">1 = para de forma constante · 8 = passa rápido e demora para parar</p>
     <label class="field"><span>Itens visíveis ao redor <output data-for="neighbors" data-digits="0"></output></span>
       <input type="range" data-key="neighbors" min="0" max="4" step="1"></label>
+
+    <h3>Efeitos no resultado</h3>
+    <label class="switch"><span>Impacto (zoom com tremor)</span><input type="checkbox" data-key="fxImpact"></label>
+    <label class="switch"><span>Flash</span><input type="checkbox" data-key="fxFlash"></label>
+    <label class="switch"><span>Onda de choque</span><input type="checkbox" data-key="fxShockwave"></label>
+    <label class="switch"><span>Faíscas</span><input type="checkbox" data-key="fxSparks"></label>
+    <label class="switch"><span>Confete</span><input type="checkbox" data-key="fxConfetti"></label>
+    <label class="switch"><span>Brilho em volta do nome</span><input type="checkbox" data-key="fxGlow"></label>
+    <label class="field"><span>Intensidade dos efeitos <output data-for="fxIntensity" data-percent></output></span>
+      <input type="range" data-key="fxIntensity" min="0.2" max="2" step="0.05"></label>
+
   </section>
 
   <section>
@@ -192,6 +216,7 @@
     <h2>Textos</h2>
     <label class="field"><span>Título (aparece no topo)</span><input type="text" data-key="title" placeholder="Ex.: Sorteio de brindes"></label>
     <label class="field"><span>Texto de espera (antes de sortear)</span><input type="text" data-key="idleText"></label>
+    <label class="switch"><span>Manter textos em letra maiúscula</span><input type="checkbox" data-key="uppercase"></label>
     <label class="switch"><span>Mostrar endereço deste painel na tela de espera</span><input type="checkbox" data-key="showAddress"></label>
   </section>
 
@@ -232,11 +257,14 @@
 
   async function api(path, body) {
     const sep = path.includes('?') ? '&' : '?';
+    const t0 = performance.now();
     const res = await fetch(`${path}${sep}canal=${channel}`, body === undefined ? {} : {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
-    return res.json();
+    const data = await res.json();
+    if (typeof data.now === 'number') syncClock(data.now, t0, performance.now());
+    return data;
   }
 
   function setConnected(ok, text) {
@@ -253,7 +281,11 @@
       const b = document.createElement('button');
       b.textContent = `Canal ${i}`;
       b.setAttribute('role', 'tab');
-      b.onclick = () => { channel = i; localStorageSet('canal', i); lastRevision = -1; pending = {}; renderTabs(); poll(); };
+      b.onclick = () => {
+        channel = i; localStorageSet('canal', i); lastRevision = -1; pending = {};
+        reels.live = { serial: -1 }; reels.test = { serial: -1 };
+        renderTabs(); poll();
+      };
       tabs.appendChild(b);
     }
     renderTabs();
@@ -262,18 +294,364 @@
     $$('#channels button').forEach((b, i) => b.classList.toggle('active', i + 1 === channel));
   }
 
+  // ---------- output preview ----------
+  // The stages replay the draw exactly like the plugin does (Channel::BuildFrame and SorteadorPlugin::ProcessOpenGL),
+  // on the plugin's own clock, so they show what the output shows instead of polled snapshots. Keep the two in sync.
+  const HIGHLIGHT_TIME = 0.3, PULSE_TIME = 0.45, NEIGHBOR_FADE_TIME = 0.5;
+  const OUTLINE_SCALE = 0.113; // widest outline of the plugin, as a fraction of the text size
+  const FALLBACK_FONT = 'Arial, Helvetica, sans-serif';
+  const phaseNames = { idle: 'Aguardando', spinning: 'Sorteando…', result: 'Resultado' };
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const mix = (a, b, t) => a + (b - a) * t;
+
+  let clockOffset = null; // plugin clock minus performance.now(), in seconds
+  function syncClock(serverNow, t0, t1) {
+    const candidate = serverNow + (t1 - t0) / 2000 - t1 / 1000;
+    if (clockOffset === null || Math.abs(candidate - clockOffset) > 0.15) clockOffset = candidate;
+    else clockOffset += (candidate - clockOffset) * 0.2;
+  }
+  const pluginNow = () => performance.now() / 1000 + (clockOffset || 0);
+
+  // Reels are fetched once per draw, when the serial changes.
+  const reels = { live: { serial: -1 }, test: { serial: -1 } };
+  function ensureReel(kind, run) {
+    const r = reels[kind];
+    if (!run.serial || r.serial === run.serial || r.loading === run.serial) return;
+    r.loading = run.serial;
+    const forChannel = channel;
+    fetch(`/api/reel?canal=${channel}&teste=${kind === 'test' ? 1 : 0}`).then(res => res.json()).then(data => {
+      if (forChannel === channel) Object.assign(reels[kind], data, { loading: 0 });
+    }).catch(() => { r.loading = 0; });
+  }
+
+  // The output's font file, so names have the same width and shape.
+  let font = { key: null, family: FALLBACK_FONT, weight: 'bold', emScale: 1 / 1.15, capRatio: 0.72 };
+  let fontCounter = 0;
+  function measureFontMetrics(family, weight) {
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${weight} 100px ${family}`;
+    const m = ctx.measureText('H');
+    // The plugin sizes text by ascent + descent (stb_truetype's ScaleForPixelHeight), canvas by the em square.
+    const height = (m.fontBoundingBoxAscent || 0) + (m.fontBoundingBoxDescent || 0);
+    return { emScale: height > 0 ? 100 / height : 1 / 1.15, capRatio: (m.actualBoundingBoxAscent || 72) / 100 * (height > 0 ? 100 / height : 1 / 1.15) };
+  }
+  function ensureFont(path) {
+    const key = `${channel}|${path}`;
+    if (font.key === key) return;
+    font = { ...font, key };
+    const family = `SorteadorFont${++fontCounter}`;
+    const face = new FontFace(family, `url(/api/font?canal=${channel}&f=${encodeURIComponent(path)})`);
+    face.load().then(loaded => {
+      if (font.key !== key) return;
+      document.fonts.add(loaded);
+      font = { key, family: `"${family}", ${FALLBACK_FONT}`, weight: 'normal', ...measureFontMetrics(`"${family}"`, 'normal') };
+    }).catch(() => {
+      // Collections (.ttc) do not load in every browser; a close system font is used instead.
+      if (font.key === key) font = { key, family: FALLBACK_FONT, weight: 'bold', ...measureFontMetrics(FALLBACK_FONT, 'bold') };
+    });
+  }
+
+  // Same hash as Random() in the plugin, so particles land in the same places.
+  function random(seed, index, salt) {
+    let h = (seed ^ Math.imul(index, 0x9E3779B9) ^ Math.imul(salt, 0x85EBCA6B)) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    h = Math.imul(h, 0x7FEB352D) >>> 0;
+    h = (h ^ (h >>> 15)) >>> 0;
+    h = Math.imul(h, 0x846CA68B) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return (h >>> 8) / 16777216;
+  }
+
+  // Channel::BuildFrame
+  function buildFrame(run, reel, cfg, now) {
+    const frame = { phase: run.phase, items: [], sinceResult: -1, seed: run.seed };
+    // The plugin moves a finished spin into the result phase on its own; do the same without waiting for a poll.
+    if (frame.phase === 'spinning' && now >= run.startTime + run.spinTime) frame.phase = 'result';
+    const item = (text, offset = 0, alpha = 1) => ({ text, offset, alpha, scale: 1, winnerMix: 0 });
+    const hasReel = reel.serial === run.serial && reel.reel && reel.reel.length;
+    const reelAt = (i) => reel.reel[Math.min(reel.reel.length - 1, Math.max(0, i + reel.pad))];
+    const k = cfg.neighbors;
+    const showsReel = cfg.animation !== 2;
+
+    if (frame.phase === 'idle') {
+      if (cfg.idleText) frame.items.push(item(cfg.idleText));
+    } else if (frame.phase === 'spinning') {
+      if (!hasReel) return frame;
+      const x = clamp01((now - run.startTime) / run.spinTime);
+      const position = run.distance * (1 - Math.pow(1 - x, run.decel));
+      if (!showsReel) {
+        frame.items.push(item(reelAt(Math.round(position))));
+      } else {
+        const base = Math.floor(position);
+        for (let i = base - k - 1; i <= base + k + 1; i++) {
+          const offset = i - position;
+          const alpha = 1 - Math.abs(offset) / (k + 1);
+          if (alpha > 0) frame.items.push(item(reelAt(i), offset, alpha));
+        }
+      }
+    } else {
+      const since = now - (run.startTime + run.spinTime);
+      frame.sinceResult = since;
+      const winner = item(run.winner);
+      winner.winnerMix = clamp01(since / HIGHLIGHT_TIME);
+      winner.scale = 1 + 0.18 * Math.sin(Math.PI * clamp01(since / PULSE_TIME));
+      if (showsReel && hasReel) {
+        const fade = 1 - clamp01(since / NEIGHBOR_FADE_TIME);
+        for (let d = -k - 1; fade > 0 && d <= k + 1; d++) {
+          const alpha = (1 - Math.abs(d) / (k + 1)) * fade;
+          if (d !== 0 && alpha > 0) frame.items.push(item(reelAt(run.distance + d), d, alpha));
+        }
+      }
+      frame.items.push(winner);
+    }
+    return frame;
+  }
+
+  const rgba = (c, a) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
+
+  function setFont(ctx, sizePx) {
+    ctx.font = `${font.weight} ${Math.max(0.1, sizePx * font.emScale)}px ${font.family}`;
+  }
+  function measure(ctx, text, sizePx) {
+    setFont(ctx, sizePx);
+    return ctx.measureText(text).width;
+  }
+  // Centered on (x, y) using the cap height, like TextRenderer::AddText.
+  function drawText(ctx, text, x, y, sizePx, color, alpha, outline, outlineColor) {
+    if (alpha <= 0 || sizePx <= 0) return;
+    setFont(ctx, sizePx);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    const baseline = y + sizePx * font.capRatio * 0.5;
+    if (outline > 0) {
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 2 * outline * OUTLINE_SCALE * sizePx;
+      ctx.strokeStyle = rgba(outlineColor, alpha);
+      ctx.strokeText(text, x, baseline);
+    }
+    ctx.fillStyle = rgba(color, alpha);
+    ctx.fillText(text, x, baseline);
+  }
+
+  // TextRenderer::AddShape
+  function shape(ctx, kind, x, y, hw, hh, angle, color, alpha, thickness = 0.1) {
+    if (alpha <= 0 || hw <= 0 || hh <= 0) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    if (kind === 'solid') {
+      ctx.fillStyle = rgba(color, alpha);
+      ctx.fillRect(-hw, -hh, 2 * hw, 2 * hh);
+    } else {
+      ctx.scale(hw, hh);
+      if (kind === 'dot') {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        for (const r of [0, 0.25, 0.5, 0.75, 1]) g.addColorStop(r, rgba(color, alpha * (1 - r) * (1 - r)));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, 1, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const t = Math.min(0.99, Math.max(0.01, thickness));
+        ctx.lineWidth = t;
+        ctx.strokeStyle = rgba(color, alpha);
+        ctx.beginPath();
+        ctx.arc(0, 0, 1 - t / 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  const CONFETTI = [[1, 0.82, 0.2], [0.95, 0.3, 0.35], [0.25, 0.65, 1], [0.35, 0.85, 0.45], [0.75, 0.45, 1], [1, 1, 1]];
+
+  // DrawBackEffects
+  function backEffects(ctx, cfg, e) {
+    if (cfg.fxConfetti) {
+      const count = Math.round(140 * e.intensity);
+      for (let i = 0; i < count; i++) {
+        const startY = -e.height * (0.03 + 1.1 * random(e.seed, i, 1));
+        const fall = e.height * (0.22 + 0.2 * random(e.seed, i, 2));
+        const y = startY + fall * e.t;
+        if (y > e.height * 1.05) continue;
+        const sway = e.height * 0.03 * Math.sin(e.t * (1.5 + 2 * random(e.seed, i, 3)) + 6.28 * random(e.seed, i, 4));
+        const x = e.width * random(e.seed, i, 5) + sway;
+        const half = e.height * (0.006 + 0.006 * random(e.seed, i, 6));
+        const angle = 6.28 * random(e.seed, i, 7) + e.t * (random(e.seed, i, 8) - 0.5) * 8;
+        const flip = Math.max(0.15, Math.abs(Math.cos(e.t * (3 + 5 * random(e.seed, i, 9)) + 6.28 * random(e.seed, i, 10))));
+        const c = CONFETTI[Math.floor(random(e.seed, i, 11) * 6) % 6];
+        shape(ctx, 'solid', x, y, half, half * 1.7 * flip, angle, c, 0.95 * clamp01(e.t / 0.15));
+      }
+    }
+    if (cfg.fxShockwave) {
+      for (let ring = 0; ring < 2; ring++) {
+        const p = (e.t - ring * 0.14) / 0.9;
+        if (p <= 0 || p >= 1) continue;
+        const eased = 1 - Math.pow(1 - p, 3);
+        const radius = e.sizePx * 0.6 + e.width * 0.55 * eased * Math.min(1.4, 0.6 + 0.4 * e.intensity);
+        const thickness = e.sizePx * 0.18 * (1 - p) + 2 * e.scale;
+        const fade = (1 - p) * (1 - p) * (ring === 0 ? 0.9 : 0.55);
+        const c = e.winner.map(v => mix(v, 1, 0.5));
+        shape(ctx, 'ring', e.x, e.y, radius * 1.35, radius, 0, c, fade, thickness / radius);
+      }
+    }
+    if (cfg.fxGlow) {
+      const pulse = 0.6 + 0.25 * Math.sin(e.t * 4);
+      const alpha = pulse * clamp01(e.t / 0.3) * Math.min(1, 0.5 + 0.5 * e.intensity);
+      shape(ctx, 'dot', e.x, e.y, e.textWidth * 0.75 + e.sizePx, e.sizePx * 1.4, 0, e.winner, alpha * 0.5);
+      // The plugin draws a soft halo from the distance field; a blurred shadow is the closest canvas equivalent.
+      ctx.save();
+      ctx.shadowColor = rgba(e.winner, alpha);
+      ctx.shadowBlur = e.drawnSize * 0.18;
+      drawText(ctx, e.winnerText, e.x, e.y, e.drawnSize, e.winner, alpha, 0);
+      ctx.restore();
+    }
+  }
+
+  // DrawFrontEffects
+  function frontEffects(ctx, cfg, e) {
+    if (cfg.fxSparks) {
+      const count = Math.round(70 * e.intensity);
+      const gravity = e.height * 1.3, drag = 0.35;
+      for (let i = 0; i < count; i++) {
+        const life = 0.8 + 0.9 * random(e.seed, i, 21);
+        const age = e.t / life;
+        if (age >= 1) continue;
+        const x0 = e.x + (random(e.seed, i, 22) - 0.5) * e.textWidth * 0.9;
+        const y0 = e.y + (random(e.seed, i, 23) - 0.5) * e.sizePx * 0.5;
+        const angle = -Math.PI * 0.5 + (random(e.seed, i, 24) - 0.5) * Math.PI * 1.7;
+        const speed = e.height * (0.6 + 1.4 * random(e.seed, i, 25)) * Math.min(1.5, 0.7 + 0.3 * e.intensity);
+        const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
+        const slow = Math.exp(-e.t / drag);
+        const x = x0 + vx * drag * (1 - slow);
+        const y = y0 + vy * drag * (1 - slow) + 0.5 * gravity * e.t * e.t;
+        const cvx = vx * slow, cvy = vy * slow + gravity * e.t;
+        const length = Math.max(e.sizePx * 0.05, Math.hypot(cvx, cvy) * 0.04);
+        const thickness = e.sizePx * (0.03 + 0.02 * random(e.seed, i, 26));
+        shape(ctx, 'dot', x, y, length, thickness, Math.atan2(cvy, cvx), [1, mix(1, 0.72, age), mix(1, 0.25, age)], Math.pow(1 - age, 1.5));
+      }
+    }
+    if (cfg.fxFlash && e.t < 0.5) {
+      const p = 1 - e.t / 0.5;
+      ctx.fillStyle = rgba(e.winner.map(v => mix(1, v, 0.25)), Math.min(1, 0.75 * e.intensity) * p * p * p);
+      ctx.fillRect(0, 0, e.width, e.height);
+    }
+  }
+
+  // SorteadorPlugin::ProcessOpenGL
+  function drawStage(canvas, frame, cfg, isTest) {
+    const ratio = window.devicePixelRatio || 1;
+    const width = Math.round(canvas.clientWidth * ratio), height = Math.round(canvas.clientHeight * ratio);
+    if (!width || !height) return;
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, width, height);
+    if (cfg.bgOpacity > 0) {
+      ctx.fillStyle = rgba(cfg.bgColor, cfg.bgOpacity);
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // Same as ToUpperUtf8 in the plugin for every letter the output can draw.
+    // ß stays as it is there, while JavaScript would turn it into SS.
+    const upper = (text) => cfg.uppercase ? text.replace(/[^ß]+/g, part => part.toLocaleUpperCase('pt-BR')) : text;
+    const title = upper(cfg.title || '');
+    frame = { ...frame, items: frame.items.map(it => ({ ...it, text: upper(it.text) })) };
+    const sizePx = cfg.textSize * height;
+    const centerX = width * 0.5, centerY = (1 - cfg.posY) * height;
+    const maxWidth = width * 0.92;
+    const horizontal = cfg.animation === 1 && frame.phase !== 'idle';
+    const items = frame.items.slice().sort((a, b) => a.offset - b.offset);
+    const sizes = [], widths = [], positions = items.map(() => centerX);
+    items.forEach((it, i) => {
+      const measured = measure(ctx, it.text, sizePx);
+      const fit = measured > maxWidth ? maxWidth / measured : 1;
+      sizes[i] = sizePx * fit;
+      widths[i] = measured * fit;
+    });
+
+    if (horizontal && items.length) {
+      let anchor = 0;
+      items.forEach((it, i) => { if (it.offset <= 1e-4) anchor = i; });
+      const gap = sizePx * 0.9;
+      const pitch = (a, b) => widths[a] * 0.5 + gap + widths[b] * 0.5;
+      if (anchor + 1 < items.length) positions[anchor] = centerX + items[anchor].offset * pitch(anchor, anchor + 1);
+      for (let i = anchor + 1; i < items.length; i++) positions[i] = positions[i - 1] + pitch(i - 1, i);
+      for (let i = anchor - 1; i >= 0; i--) positions[i] = positions[i + 1] - pitch(i, i + 1);
+    }
+
+    let winnerIndex = -1;
+    if (frame.phase === 'result' && frame.sinceResult >= 0)
+      items.forEach((it, i) => { if (Math.abs(it.offset) < 1e-4) winnerIndex = i; });
+
+    let fx = null, shakeX = 0, shakeY = 0;
+    if (winnerIndex >= 0) {
+      const t = frame.sinceResult;
+      if (cfg.fxImpact) {
+        const punch = 0.55 * Math.min(1.5, cfg.fxIntensity) * Math.exp(-6 * t) * Math.cos(9 * t) * clamp01(t / 0.04);
+        items[winnerIndex].scale = 1 + punch;
+        const shake = height * 0.012 * cfg.fxIntensity * Math.exp(-9 * t);
+        shakeX = shake * Math.sin(t * 71 + (frame.seed % 97));
+        shakeY = shake * Math.sin(t * 59 + (frame.seed % 89));
+      }
+      fx = {
+        t, intensity: cfg.fxIntensity, width, height, x: positions[winnerIndex], y: centerY, sizePx, scale: height / 720,
+        drawnSize: sizes[winnerIndex] * items[winnerIndex].scale, textWidth: widths[winnerIndex] * items[winnerIndex].scale,
+        winnerText: items[winnerIndex].text, winner: cfg.winnerColor, seed: frame.seed,
+      };
+      backEffects(ctx, cfg, fx);
+    }
+
+    const lineSpacing = sizePx * 1.35;
+    items.forEach((it, i) => {
+      const y = horizontal ? centerY : centerY + it.offset * lineSpacing;
+      const color = [0, 1, 2].map(c => mix(cfg.textColor[c], cfg.winnerColor[c], it.winnerMix));
+      drawText(ctx, it.text, positions[i] + shakeX, y + shakeY, sizes[i] * it.scale, color, it.alpha, cfg.outline, cfg.outlineColor);
+    });
+    if (fx) frontEffects(ctx, cfg, fx);
+
+    if (title) {
+      let titleSize = sizePx * 0.45;
+      const measured = measure(ctx, title, titleSize);
+      if (measured > width * 0.92) titleSize *= width * 0.92 / measured;
+      drawText(ctx, title, centerX, height * 0.12, titleSize, cfg.textColor, 1, cfg.outline, cfg.outlineColor);
+    }
+    if (frame.phase === 'idle' && cfg.showAddress && state && state.address)
+      drawText(ctx, `Controle web: ${state.address}  (canal ${channel})`, centerX, height * 0.94, height * 0.035, [1, 1, 1], 0.75, cfg.outline, cfg.outlineColor);
+    if (isTest) {
+      const tag = 'PRÉVIA - TESTE', tagSize = height * 0.04;
+      drawText(ctx, tag, height * 0.03 + measure(ctx, tag, tagSize) * 0.5, height * 0.05, tagSize, [1, 0.82, 0.2], 0.9, cfg.outline, cfg.outlineColor);
+    }
+  }
+
+  function renderStages() {
+    requestAnimationFrame(renderStages);
+    if (!state || clockOffset === null) return;
+    // Edits show up right away; the output follows as soon as they are sent.
+    const cfg = { ...state.config, ...pending };
+    ensureFont(cfg.fontPath);
+    const now = pluginNow();
+    for (const [kind, run, canvas] of [['live', state.run, $('#liveCanvas')], ['test', state.testRun, $('#testCanvas')]]) {
+      ensureReel(kind, run);
+      const frame = buildFrame(run, reels[kind], cfg, now);
+      drawStage(canvas, frame, cfg, kind === 'test');
+      const progress = run.phase === 'idle' ? 0 : clamp01((now - run.startTime) / run.spinTime);
+      $(`#${kind}Phase`).textContent = phaseNames[frame.phase];
+      $(`#${kind}Progress`).style.width = `${progress * 100}%`;
+    }
+  }
+  requestAnimationFrame(renderStages);
+
   function renderLive(s) {
-    const display = $('#display');
-    display.textContent = s.display || '—';
-    display.classList.toggle('result', s.phase === 'result');
-    $('#phase').textContent = { idle: 'Aguardando', spinning: 'Sorteando…', result: 'Resultado' }[s.phase];
-    $('#progress').style.width = `${Math.round(s.progress * 100)}%`;
     $('#message').textContent = s.message || '';
     $('#start').disabled = s.phase === 'spinning';
+    $('#test').disabled = s.test.phase === 'spinning';
     $('#available').textContent = s.config.noRepeat
       ? `${s.available} de ${s.total} disponíveis para sortear`
       : `${s.total} opções`;
   }
+
+  const dateFormat = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const formatTime = (time) => time ? dateFormat.format(new Date(time * 1000)) : '';
 
   function renderHistory(history) {
     const list = $('#history');
@@ -282,10 +660,12 @@
       list.innerHTML = '<li class="empty">Ninguém sorteado ainda.</li>';
       return;
     }
-    history.forEach((name, i) => {
+    history.forEach((entry, i) => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="n">${i + 1}º</span><span class="name"></span><button title="Remover do histórico" aria-label="Remover">×</button>`;
-      li.querySelector('.name').textContent = name;
+      li.innerHTML = `<span class="n">${i + 1}º</span><span class="name"></span><time></time><button title="Remover do histórico" aria-label="Remover">×</button>`;
+      li.querySelector('.name').textContent = entry.name;
+      li.querySelector('time').textContent = formatTime(entry.time);
+      if (entry.time) li.querySelector('time').dateTime = new Date(entry.time * 1000).toISOString();
       li.querySelector('button').onclick = () => api(`/api/history/remove?index=${i}`, {}).then(apply).catch(showError);
       list.appendChild(li);
     });
@@ -356,7 +736,8 @@
   // ---------- polling ----------
   function schedulePoll() {
     clearTimeout(pollTimer);
-    pollTimer = setTimeout(poll, state && state.phase === 'spinning' ? 120 : 800);
+    const spinning = state && (state.phase === 'spinning' || state.test.phase === 'spinning');
+    pollTimer = setTimeout(poll, spinning ? 120 : 800);
   }
   async function poll() {
     try {
@@ -417,14 +798,34 @@
 
   $('#start').onclick = () => api('/api/start', {}).then(apply).catch(showError);
   $('#clear').onclick = () => api('/api/clear', {}).then(apply).catch(showError);
+  $('#test').onclick = () => api('/api/test', {}).then(apply).catch(showError);
+  $('#testClear').onclick = () => api('/api/test/clear', {}).then(apply).catch(showError);
   $('#resetHistory').onclick = () => {
     if (confirm('Zerar o histórico deste canal? Todos voltam a poder ser sorteados.'))
       api('/api/reset-history', {}).then(apply).catch(showError);
   };
+  // The Clipboard API only exists on https or localhost; on the network address the panel falls back to execCommand.
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      area.remove();
+      return ok;
+    }
+  }
   $('#copyHistory').onclick = async () => {
-    const text = (state ? state.history : []).map((n, i) => `${i + 1}. ${n}`).join('\n');
-    try { await navigator.clipboard.writeText(text); $('#copyHistory').textContent = 'Copiado!'; }
-    catch { prompt('Copie a lista:', text); }
+    const text = (state ? state.history : [])
+      .map((h, i) => `${i + 1}. ${h.name}` + (h.time ? ` - ${formatTime(h.time)}` : '')).join('\n');
+    $('#copyHistory').textContent = await copyText(text) ? 'Copiado!' : 'Não foi possível copiar';
     setTimeout(() => $('#copyHistory').textContent = 'Copiar lista', 1500);
   };
 

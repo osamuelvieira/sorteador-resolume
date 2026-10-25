@@ -2,6 +2,7 @@
 #include "Platform.h"
 #include "WebServer.h"
 #include <chrono>
+#include <cmath>
 
 using nlohmann::json;
 
@@ -9,7 +10,7 @@ namespace sorteador
 {
 namespace
 {
-constexpr int kStateVersion = 1;
+constexpr int kStateVersion = 3;
 
 std::filesystem::path StateFile()
 {
@@ -131,12 +132,32 @@ void ChannelManager::Load()
 		if( state.contains( "port" ) )
 			port = state[ "port" ].get< int >();
 
+		const int version = state.value( "version", 1 );
 		std::lock_guard< std::mutex > lock( mutex );
 		const json& saved = state.value( "channels", json::array() );
 		for( size_t i = 0; i < saved.size() && i < channels.size(); ++i )
 		{
-			MergeJson( channels[ i ].config, saved[ i ].value( "config", json::object() ) );
-			channels[ i ].SetHistory( saved[ i ].value( "history", std::vector< std::string >() ) );
+			DrawConfig& config = channels[ i ].config;
+			MergeJson( config, saved[ i ].value( "config", json::object() ) );
+			// The winner color became white by default; keep any color the user picked on purpose.
+			const Color& w = config.winnerColor;
+			if( version < 2 && std::fabs( w.r - kOldWinnerColor.r ) < 1e-3f && std::fabs( w.g - kOldWinnerColor.g ) < 1e-3f &&
+			    std::fabs( w.b - kOldWinnerColor.b ) < 1e-3f )
+				config.winnerColor = Color{};
+			// The address on screen became off by default.
+			if( version < 3 )
+				config.showAddress = false;
+
+			// Before 1.2 only names were saved, newer versions save { "name", "time" }.
+			std::vector< HistoryEntry > history;
+			for( const json& entry : saved[ i ].value( "history", json::array() ) )
+			{
+				if( entry.is_string() )
+					history.push_back( { entry.get< std::string >() } );
+				else if( entry.is_object() )
+					history.push_back( { entry.value( "name", std::string() ), entry.value( "time", (int64_t)0 ) } );
+			}
+			channels[ i ].SetHistory( std::move( history ) );
 		}
 	}
 	catch( const std::exception& )
@@ -151,7 +172,7 @@ void ChannelManager::Save()
 	{
 		std::lock_guard< std::mutex > lock( mutex );
 		for( const Channel& c : channels )
-			state[ "channels" ].push_back( { { "config", ToJson( c.config ) }, { "history", c.GetHistory() } } );
+			state[ "channels" ].push_back( { { "config", ToJson( c.config ) }, { "history", HistoryToJson( c.GetHistory() ) } } );
 	}
 	WriteFileAtomic( StateFile(), state.dump( 2, ' ', false, json::error_handler_t::replace ) );
 }

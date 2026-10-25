@@ -45,6 +45,11 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      # The linker signs only the binary, which leaves the bundle signature inconsistent; Apple Silicon may then
+      # refuse to load it. An ad-hoc signature of the whole bundle fixes that.
+      - name: Sign
+        run: codesign --force --deep --sign - build/Sorteador.bundle && codesign --verify build/Sorteador.bundle
+
       - name: Package
         run: cd build && zip -r Sorteador-macOS.zip Sorteador.bundle
 
