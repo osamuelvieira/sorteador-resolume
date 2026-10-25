@@ -46,6 +46,12 @@ std::string Lower( std::string s )
 	std::transform( s.begin(), s.end(), s.begin(), []( unsigned char c ) { return (char)std::tolower( c ); } );
 	return s;
 }
+
+bool IsFontExtension( const fs::path& path )
+{
+	std::string ext = Lower( PathToUtf8( path.extension() ) );
+	return ext == ".ttf" || ext == ".otf" || ext == ".ttc";
+}
 }//namespace
 
 fs::path PathFromUtf8( const std::string& utf8 )
@@ -102,14 +108,27 @@ std::vector< FontFile > ListSystemFonts()
 	{
 		std::error_code ec;
 		for( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
-		{
-			std::string ext = Lower( PathToUtf8( it->path().extension() ) );
-			if( ext == ".ttf" || ext == ".otf" || ext == ".ttc" )
+			if( IsFontExtension( it->path() ) )
 				fonts.push_back( { PathToUtf8( it->path().stem() ), PathToUtf8( it->path() ) } );
-		}
 	}
 	std::sort( fonts.begin(), fonts.end(), []( const FontFile& a, const FontFile& b ) { return Lower( a.name ) < Lower( b.name ); } );
 	return fonts;
+}
+
+bool IsSystemFont( const std::string& utf8 )
+{
+	// Resolved first, so "..", symbolic links or a different spelling cannot step out of the font folders.
+	std::error_code ec;
+	const fs::path path = fs::weakly_canonical( PathFromUtf8( utf8 ), ec );
+	if( ec || !IsFontExtension( path ) || !fs::is_regular_file( path, ec ) )
+		return false;
+	for( const fs::path& dir : FontDirectories() )
+	{
+		const fs::path folder = fs::weakly_canonical( dir, ec );
+		if( !ec && path.parent_path() == folder )
+			return true;
+	}
+	return false;
 }
 
 bool ReadFile( const fs::path& path, std::vector< unsigned char >& out )

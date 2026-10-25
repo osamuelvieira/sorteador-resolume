@@ -13,7 +13,8 @@ enum class Shape
 {
 	Solid,// filled rectangle
 	Dot,  // soft round spot (an ellipse when the sides differ)
-	Ring  // soft circle outline
+	Ring, // soft circle outline
+	Sector// slice of a disc pointing along the angle, as wide as twice the thickness parameter (radians)
 };
 
 // Capital letters for ASCII, Latin-1 and Latin Extended-A, the characters the atlas has. Others are kept as they are.
@@ -43,10 +44,12 @@ public:
 	void Begin( float viewportWidth, float viewportHeight );
 	void AddRect( float x0, float y0, float x1, float y1, const float rgba[ 4 ] );
 	// Draws a line centered on (centerX, centerY), using the cap height so all-caps and mixed text sit at the same spot.
-	void AddText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] );
+	// angle turns the text around its center, in radians.
+	void AddText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float angle = 0.0f );
 	// Same placement as AddText, drawing only a soft halo around the letters.
 	void AddGlowText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] );
-	// A shape centered on (centerX, centerY), rotated by angle radians. thickness is used by rings, 0..1 of the radius.
+	// A shape centered on (centerX, centerY), rotated by angle radians. thickness is used by rings, 0..1 of the radius,
+	// and by sectors, as half their opening in radians (up to pi for a whole disc).
 	void AddShape( Shape shape, float centerX, float centerY, float halfWidth, float halfHeight, float angle, const float rgba[ 4 ],
 	               float thickness = 0.1f );
 	// outline is 0..1 of the maximum outline width the atlas supports.
@@ -54,7 +57,7 @@ public:
 
 private:
 	void PollFont();
-	void AddGlyphs( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float kind );
+	void AddGlyphs( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float kind, float angle = 0.0f );
 	void PushQuad( float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, const float rgba[ 4 ], float kind );
 	void PushVertex( float x, float y, float u, float v, const float rgba[ 4 ], float kind );
 

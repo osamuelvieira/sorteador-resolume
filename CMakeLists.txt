@@ -4,7 +4,7 @@ if(APPLE)
 	set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "std::filesystem needs macOS 10.15")
 endif()
 
-project(SorteadorResolume VERSION 1.2.0 LANGUAGES C CXX)
+project(SorteadorResolume VERSION 1.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,8 @@ add_library(Sorteador MODULE
 	src/TextRenderer.cpp
 	src/WebServer.cpp
 	src/Platform.cpp
+	src/QrCode.cpp
+	third_party/qrcodegen/qrcodegen.cpp
 	${FFGL_DIR}/source/lib/FFGLSDK.cpp
 	${GENERATED_DIR}/web_assets.h
 )
@@ -55,6 +57,7 @@ target_include_directories(Sorteador PRIVATE
 	${GENERATED_DIR}
 )
 target_link_libraries(Sorteador PRIVATE sorteador_core)
+target_compile_definitions(Sorteador PRIVATE SORTEADOR_VERSION="${PROJECT_VERSION}")
 
 if(MSVC)
 	target_compile_options(sorteador_core PUBLIC /utf-8 /W3 /bigobj)

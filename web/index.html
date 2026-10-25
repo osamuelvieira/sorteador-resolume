@@ -17,8 +17,15 @@
     --accent-ink: #1b1600;
     --danger: #ef5b5b;
     --ok: #4cc38a;
+    --warn: #f0b429;
+    --live: #e5484d;
+    --rehearsal: #3e8bff;
     --radius: 12px;
   }
+  /* The page takes the color of the mode, so it is obvious whether the big button goes on air. */
+  body { --mode: var(--live); }
+  body[data-mode=test] { --mode: var(--rehearsal); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: 4px; background: var(--mode); z-index: 10; }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
@@ -43,17 +50,52 @@
     font: inherit; font-size: 13px; cursor: pointer;
   }
   .tabs button.active { background: var(--panel-2); color: var(--text); }
-  main { max-width: 980px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: 1fr; }
-  @media (min-width: 860px) {
-    main { grid-template-columns: 1fr 1fr; }
-    .wide { grid-column: 1 / -1; }
+  #modeSwitch button.active { background: var(--mode); color: #fff; font-weight: 600; }
+  #lock { padding: 7px 12px; }
+  /* Stage on the left and settings on the right, so every change is seen while it is made. On phones they stack. */
+  main { max-width: 1240px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .col { display: grid; gap: 16px; min-width: 0; }
+  @media (min-width: 1000px) {
+    main { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+    .col-stage { position: sticky; top: 64px; }
   }
+  .pane-tabs { overflow-x: auto; scrollbar-width: none; }
+  .pane-tabs button { flex: 1 0 auto; padding: 9px 12px; font-size: 14px; }
+  @media (max-width: 520px) { .pane-tabs button { padding: 8px 5px; font-size: 13px; } }
+  .pane { display: none; }
+  .pane.active { display: block; }
+  .pane-foot { display: flex; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 18px; }
+  .presets button {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px; cursor: pointer;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 13px; text-align: left;
+  }
+  .presets button:hover { border-color: var(--muted); }
+  .swatch { display: inline-flex; flex: none; }
+  .swatch i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); margin-right: -4px; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+  section.operate { border-color: var(--mode); }
+  .operate-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  button:focus-visible, select:focus-visible, .switch input:focus-visible, .presets button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .operate-head h2 { margin: 0; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 3px 8px; border-radius: 6px; background: var(--mode); color: #fff; }
+  .outputs { font-size: 14px; margin: -4px 0 10px; }
+  .outputs.ok { color: var(--ok); }
+  .outputs.warn { color: var(--warn); }
+  .lock-show { display: none; }
+  body.locked .lock-show { display: block; }
+  body.locked .lock-hide { display: none !important; }
+  .locked-banner { align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
+  body.locked .locked-banner { display: flex; }
+  .locked-banner p { margin: 0; flex: 1 1 260px; }
 
   /* The stage is a canvas that draws exactly what the output shows, at the output's 16:9 shape. */
   .stage { position: relative; overflow: hidden; background: #000; border-radius: 10px; aspect-ratio: 16 / 9; margin-bottom: 14px; }
   .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .phase { position: absolute; top: 8px; right: 10px; font-size: 12px; color: var(--muted); background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 6px; }
+  /* Next to the title instead of over the stage, where it would cover the output's own title. */
+  .phase { margin-left: auto; font-size: 13px; color: var(--muted); }
   h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
   .progress { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--accent); width: 0; }
   .message { color: var(--danger); min-height: 1.4em; margin: -4px 0 10px; font-size: 14px; }
@@ -61,7 +103,14 @@
   button.primary, button.secondary, button.ghost {
     font: inherit; font-weight: 600; border-radius: 10px; cursor: pointer; padding: 12px 18px; border: 1px solid transparent;
   }
-  button.primary { background: var(--accent); color: var(--accent-ink); flex: 1 1 220px; font-size: 18px; padding: 16px; }
+  /* The big button has its own row, so the others never push it around when "Ausente" comes and goes. */
+  button.primary { background: var(--mode); color: #fff; flex: 1 1 100%; font-size: 18px; padding: 16px; position: relative; overflow: hidden; }
+  /* Fills up while the space bar is held, before a draw goes on air. */
+  button.primary .hold { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(255, 255, 255, .28); }
+  button.primary.holding .hold { width: 100%; transition: width .6s linear; }
+  button.primary .label { position: relative; }
+  button.secondary.confirm { border-color: var(--warn); color: var(--warn); }
+  .operate .actions button.secondary { flex: 1 1 auto; }
   button.primary:disabled, button.secondary:disabled { opacity: .5; cursor: default; }
   button.secondary { background: var(--panel-2); color: var(--text); border-color: var(--line); }
   button.ghost { background: none; color: var(--muted); border-color: var(--line); padding: 8px 12px; font-weight: 500; font-size: 13px; }
@@ -89,17 +138,27 @@
   .colors label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
   input[type=color] { width: 40px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 2px; }
   .hint { color: var(--muted); font-size: 13px; margin: -6px 0 14px; }
+  .actions + .hint { margin: 12px 0 0; }
+  #modeHint { margin: 4px 0 0; }
+  .warnings { color: var(--warn); font-size: 13px; margin: -6px 0 14px; }
+  .warnings p { margin: 0 0 4px; }
   .hidden { display: none !important; }
 
-  ol#history { margin: 0 0 14px; padding: 0; list-style: none; max-height: 320px; overflow: auto; }
+  ol#history { margin: 0 0 14px; padding: 0; list-style: none; max-height: 60vh; overflow: auto; }
   ol#history li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   ol#history li .n { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.2em; }
   ol#history li .name { flex: 1; overflow-wrap: anywhere; }
+  ol#history li .detail { color: var(--muted); font-size: 13px; }
   ol#history li time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  ol#history li button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+  ol#history li button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 20px; min-width: 36px; min-height: 36px; border-radius: 8px; }
   ol#history li button:hover { color: var(--danger); }
+  ol#history li.absent .name { text-decoration: line-through; color: var(--muted); }
+  .tag { font-size: 11px; color: var(--warn); border: 1px solid currentColor; border-radius: 5px; padding: 0 6px; white-space: nowrap; }
+  #toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 20; width: min(calc(100vw - 32px), 440px); }
+  .toast { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 28px rgba(0,0,0,.45); font-size: 14px; }
+  .toast button { margin-left: auto; background: none; border: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; padding: 0; white-space: nowrap; }
   .empty { color: var(--muted); font-size: 14px; }
-  footer { max-width: 980px; margin: 20px auto 0; color: var(--muted); font-size: 12px; text-align: center; }
+  footer { max-width: 1240px; margin: 20px auto 0; color: var(--muted); font-size: 12px; text-align: center; }
   footer a { color: var(--accent); text-decoration: none; }
   code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 </style>
@@ -108,131 +167,200 @@
 <header>
   <h1>Sorteador</h1>
   <div class="tabs" id="channels" role="tablist" aria-label="Canal"></div>
+  <div class="tabs" id="modeSwitch" role="group" aria-label="Modo">
+    <button data-mode="test" title="O botão principal faz um sorteio de teste, só nos clips em Modo prévia">Ensaio</button>
+    <button data-mode="live" title="O botão principal faz o sorteio de verdade, na saída">Ao vivo</button>
+  </div>
+  <button class="ghost" id="lock" title="Trava as configurações deste canal em todos os painéis, para operar sem mexer em nada por engano">Travar</button>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Conectando…</span></div>
 </header>
 
 <main>
-  <section>
-    <h2>Ao vivo</h2>
-    <div class="stage">
-      <canvas id="liveCanvas"></canvas>
-      <span class="phase" id="livePhase">Aguardando</span>
-      <div class="progress" id="liveProgress"></div>
-    </div>
-    <div class="message" id="message"></div>
-    <div class="actions">
-      <button class="primary" id="start">Iniciar sorteio</button>
-      <button class="secondary" id="clear">Limpar tela</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>Sorteio de teste</h2>
-    <div class="stage">
-      <canvas id="testCanvas"></canvas>
-      <span class="phase" id="testPhase">Aguardando</span>
-      <div class="progress" id="testProgress"></div>
-    </div>
-    <p class="hint">Roda a animação e os efeitos completos, mas <strong>não vai para o ar</strong> e não conta no histórico.
-      Aparece só nos clips com <strong>Modo prévia (teste)</strong> ligado: veja no monitor de Preview do Resolume.</p>
-    <div class="actions">
-      <button class="secondary" id="test">Sorteio de teste</button>
-      <button class="ghost" id="testClear">Limpar teste</button>
-    </div>
-  </section>
-
-  <section>
-    <h2>O que sortear</h2>
-    <div class="segmented" data-key="mode">
-      <button data-value="0">Lista de nomes</button>
-      <button data-value="1">Números</button>
-    </div>
-    <div id="listFields">
-      <label class="field"><span>Um item por linha <output id="listCount"></output></span>
-        <textarea id="listText" data-key="listText" spellcheck="false" placeholder="Ana&#10;Bruno&#10;Carla"></textarea>
-      </label>
-    </div>
-    <div id="numberFields">
-      <div class="row">
-        <label class="field"><span>Número inicial</span><input type="number" data-key="numMin" step="1"></label>
-        <label class="field"><span>Número final</span><input type="number" data-key="numMax" step="1"></label>
+  <div class="col col-stage">
+    <section class="operate">
+      <div class="operate-head"><h2 id="stageTitle">Ao vivo</h2><span class="badge" id="badge">NO AR</span><span class="phase" id="stagePhase">Aguardando</span></div>
+      <div class="stage">
+        <canvas id="stageCanvas"></canvas>
+        <div class="progress" id="stageProgress"></div>
       </div>
-      <label class="switch"><span>Completar com zeros (007)</span><input type="checkbox" data-key="zeroPad"></label>
+      <div class="outputs" id="outputs"></div>
+      <div class="message" id="message"></div>
+      <div class="actions">
+        <button class="primary" id="start"><span class="hold"></span><span class="label" id="startLabel">Iniciar sorteio</span></button>
+        <button class="secondary hidden" id="redraw">Ausente, sortear de novo</button>
+        <button class="secondary" id="board" title="Mostra na tela todos os sorteados até agora">Ganhadores</button>
+        <button class="secondary" id="clear">Limpar tela</button>
+      </div>
+      <p class="hint" id="available"></p>
+      <p class="hint" id="modeHint"></p>
+    </section>
+
+    <section class="lock-show locked-banner">
+      <p><strong>Configurações travadas.</strong> Neste canal, os painéis só sorteiam e limpam a tela; lista, visual e histórico não mudam por engano. O Resolume continua podendo ajustar tudo.</p>
+      <button class="secondary" id="unlock">Destravar</button>
+    </section>
+  </div>
+
+  <div class="col col-settings">
+    <div class="tabs pane-tabs" id="paneTabs" role="tablist" aria-label="Configurações">
+      <button role="tab" data-pane="conteudo" class="lock-hide">Conteúdo</button>
+      <button role="tab" data-pane="animacao" class="lock-hide">Animação</button>
+      <button role="tab" data-pane="visual" class="lock-hide">Visual</button>
+      <button role="tab" data-pane="textos" class="lock-hide">Textos</button>
+      <button role="tab" data-pane="historico">Histórico</button>
     </div>
-    <label class="switch"><span>Não repetir quem já foi sorteado</span><input type="checkbox" data-key="noRepeat"></label>
-    <p class="hint" id="available"></p>
-  </section>
 
-  <section>
-    <h2>Animação</h2>
-    <div class="segmented" data-key="animation">
-      <button data-value="0">Vertical</button>
-      <button data-value="1">Horizontal</button>
-      <button data-value="2">No lugar</button>
-    </div>
-    <label class="field"><span>Duração <output data-for="duration" data-unit=" s" data-digits="0"></output></span>
-      <input type="range" data-key="duration" min="1" max="60" step="1"></label>
-    <label class="field"><span>Velocidade inicial <output data-for="speed" data-unit=" itens/s" data-digits="0"></output></span>
-      <input type="range" data-key="speed" min="2" max="100" step="1"></label>
-    <label class="field"><span>Desaceleração <output data-for="decel" data-digits="0"></output></span>
-      <input type="range" data-key="decel" min="1" max="8" step="1"></label>
-    <p class="hint">1 = para de forma constante · 8 = passa rápido e demora para parar</p>
-    <label class="field"><span>Itens visíveis ao redor <output data-for="neighbors" data-digits="0"></output></span>
-      <input type="range" data-key="neighbors" min="0" max="4" step="1"></label>
+    <section class="pane lock-hide" role="tabpanel" data-pane="conteudo">
+      <h2>O que sortear</h2>
+      <div class="segmented" data-key="mode">
+        <button data-value="0">Lista de nomes</button>
+        <button data-value="1">Números</button>
+      </div>
+      <div id="listFields">
+        <label class="field"><span>Um item por linha <output id="listCount"></output></span>
+          <textarea id="listText" data-key="listText" spellcheck="false" placeholder="Ana&#10;Bruno | Recife&#10;Carla"></textarea>
+        </label>
+        <p class="hint">Escreva <code>Nome | detalhe</code> para mostrar uma segunda linha sob o sorteado, como a cidade ou o número do cupom.</p>
+        <div class="warnings" id="listWarnings"></div>
+      </div>
+      <div id="numberFields">
+        <div class="row">
+          <label class="field"><span>Número inicial</span><input type="number" data-key="numMin" step="1"></label>
+          <label class="field"><span>Número final</span><input type="number" data-key="numMax" step="1"></label>
+        </div>
+        <label class="switch"><span>Completar com zeros (007)</span><input type="checkbox" data-key="zeroPad"></label>
+      </div>
+      <label class="switch"><span>Não repetir quem já foi sorteado</span><input type="checkbox" data-key="noRepeat"></label>
 
-    <h3>Efeitos no resultado</h3>
-    <label class="switch"><span>Impacto (zoom com tremor)</span><input type="checkbox" data-key="fxImpact"></label>
-    <label class="switch"><span>Flash</span><input type="checkbox" data-key="fxFlash"></label>
-    <label class="switch"><span>Onda de choque</span><input type="checkbox" data-key="fxShockwave"></label>
-    <label class="switch"><span>Faíscas</span><input type="checkbox" data-key="fxSparks"></label>
-    <label class="switch"><span>Confete</span><input type="checkbox" data-key="fxConfetti"></label>
-    <label class="switch"><span>Brilho em volta do nome</span><input type="checkbox" data-key="fxGlow"></label>
-    <label class="field"><span>Intensidade dos efeitos <output data-for="fxIntensity" data-percent></output></span>
-      <input type="range" data-key="fxIntensity" min="0.2" max="2" step="0.05"></label>
+      <h3>Vários ganhadores</h3>
+      <label class="field"><span>Ganhadores por sorteio <output data-for="drawCount" data-digits="0"></output></span>
+        <input type="range" data-key="drawCount" min="1" max="20" step="1"></label>
+      <div id="revealFields">
+        <div class="segmented" data-key="reveal">
+          <button data-value="0">Um a um</button>
+          <button data-value="1">Todos em grade</button>
+        </div>
+        <p class="hint" id="revealHint"></p>
+        <label class="field" id="revealGapField"><span>Tempo de cada ganhador sozinho na tela <output data-for="revealGap" data-unit=" s" data-digits="0"></output></span>
+          <input type="range" data-key="revealGap" min="1" max="15" step="1"></label>
+      </div>
 
-  </section>
+      <h3>Este canal</h3>
+      <label class="field"><span>Nome (aparece nas abas, no Resolume e na tela de espera)</span>
+        <input type="text" id="channelName" maxlength="40" placeholder="Ex.: Brindes"></label>
+      <div class="actions">
+        <button class="ghost" id="exportConfig" title="Baixa a lista e todas as configurações deste canal num arquivo">Exportar configuração</button>
+        <button class="ghost" id="importConfig" title="Carrega um arquivo exportado antes, substituindo a lista e as configurações deste canal">Importar…</button>
+        <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+      </div>
+      <div class="actions" style="margin-top: 10px">
+        <select id="copyTarget" style="flex: 1 1 160px; width: auto"></select>
+        <button class="ghost" id="copyVisual" title="Copia animação, efeitos, cores, fontes e tamanhos; a lista e os textos ficam como estão">Copiar visual para lá</button>
+      </div>
+    </section>
 
-  <section>
-    <h2>Visual</h2>
-    <label class="field"><span>Fonte</span>
-      <select id="font" data-key="fontPath"><option value="">Padrão do sistema</option></select></label>
-    <label class="field"><span>Tamanho do texto <output data-for="textSize" data-percent></output></span>
-      <input type="range" data-key="textSize" min="0.02" max="0.6" step="0.01"></label>
-    <label class="field"><span>Posição vertical <output data-for="posY" data-percent></output></span>
-      <input type="range" data-key="posY" min="0" max="1" step="0.01"></label>
-    <label class="field"><span>Contorno <output data-for="outline" data-percent></output></span>
-      <input type="range" data-key="outline" min="0" max="1" step="0.01"></label>
-    <div class="colors">
-      <label><input type="color" data-key="textColor"> Texto</label>
-      <label><input type="color" data-key="winnerColor"> Sorteado</label>
-      <label><input type="color" data-key="outlineColor"> Contorno</label>
-      <label><input type="color" data-key="bgColor"> Fundo</label>
-    </div>
-    <label class="field"><span>Opacidade do fundo <output data-for="bgOpacity" data-percent></output></span>
-      <input type="range" data-key="bgOpacity" min="0" max="1" step="0.01"></label>
-  </section>
+    <section class="pane lock-hide" role="tabpanel" data-pane="animacao">
+      <h2>Animação</h2>
+      <div class="segmented" data-key="animation">
+        <button data-value="0">Vertical</button>
+        <button data-value="1">Horizontal</button>
+        <button data-value="2">No lugar</button>
+        <button data-value="3">Roda</button>
+        <button data-value="4">Caça-níquel</button>
+      </div>
+      <label class="field"><span>Duração <output data-for="duration" data-unit=" s" data-digits="0"></output></span>
+        <input type="range" data-key="duration" min="1" max="60" step="1"></label>
+      <label class="field"><span>Velocidade inicial <output data-for="speed" data-unit=" itens/s" data-digits="0"></output></span>
+        <input type="range" data-key="speed" min="2" max="100" step="1"></label>
+      <label class="field"><span>Desaceleração <output data-for="decel" data-digits="0"></output></span>
+        <input type="range" data-key="decel" min="1" max="8" step="1"></label>
+      <p class="hint">1 = para de forma constante · 8 = passa rápido e demora para parar</p>
+      <label class="field"><span>Itens visíveis ao redor <output data-for="neighbors" data-digits="0"></output></span>
+        <input type="range" data-key="neighbors" min="0" max="4" step="1"></label>
+      <label class="switch"><span>Efeito tambor (os vizinhos se curvam, na rolagem vertical)</span><input type="checkbox" data-key="drum"></label>
+      <label class="field"><span>Voltar à tela de espera após <output data-for="autoClear" data-unit=" s" data-digits="0" data-zero="nunca"></output></span>
+        <input type="range" data-key="autoClear" min="0" max="60" step="1"></label>
+      <label class="field"><span>Contagem regressiva antes de girar <output data-for="countdown" data-unit=" s" data-digits="0" data-zero="desligada"></output></span>
+        <input type="range" data-key="countdown" min="0" max="5" step="1"></label>
+      <p class="hint" id="animationHint"></p>
+      <p class="hint">Em "nunca", o resultado fica na tela até você clicar em Limpar.</p>
 
-  <section>
-    <h2>Textos</h2>
-    <label class="field"><span>Título (aparece no topo)</span><input type="text" data-key="title" placeholder="Ex.: Sorteio de brindes"></label>
-    <label class="field"><span>Texto de espera (antes de sortear)</span><input type="text" data-key="idleText"></label>
-    <label class="switch"><span>Manter textos em letra maiúscula</span><input type="checkbox" data-key="uppercase"></label>
-    <label class="switch"><span>Mostrar endereço deste painel na tela de espera</span><input type="checkbox" data-key="showAddress"></label>
-  </section>
+      <h3>Efeitos no resultado</h3>
+      <label class="switch"><span>Impacto (zoom com tremor)</span><input type="checkbox" data-key="fxImpact"></label>
+      <label class="switch"><span>Flash</span><input type="checkbox" data-key="fxFlash"></label>
+      <label class="switch"><span>Onda de choque</span><input type="checkbox" data-key="fxShockwave"></label>
+      <label class="switch"><span>Faíscas</span><input type="checkbox" data-key="fxSparks"></label>
+      <label class="switch"><span>Confete</span><input type="checkbox" data-key="fxConfetti"></label>
+      <label class="switch"><span>Brilho em volta do nome</span><input type="checkbox" data-key="fxGlow"></label>
+      <label class="field"><span>Intensidade dos efeitos <output data-for="fxIntensity" data-percent></output></span>
+        <input type="range" data-key="fxIntensity" min="0.2" max="2" step="0.05"></label>
+      <div class="pane-foot"><button class="ghost" data-reset="animacao">Restaurar padrão da animação</button></div>
+    </section>
 
-  <section class="wide">
-    <h2>Histórico</h2>
-    <ol id="history"></ol>
-    <div class="actions">
-      <button class="ghost" id="copyHistory">Copiar lista</button>
-      <button class="ghost" id="resetHistory">Zerar histórico</button>
-    </div>
-  </section>
+    <section class="pane lock-hide" role="tabpanel" data-pane="visual">
+      <h2>Visual</h2>
+      <div class="field-title">Estilos prontos</div>
+      <div class="presets" id="presets"></div>
+      <label class="field"><span>Fonte dos nomes</span>
+        <select class="font-select" data-key="fontPath"><option value="">Padrão do sistema</option></select></label>
+      <label class="field"><span>Tamanho dos nomes <output data-for="textSize" data-percent></output></span>
+        <input type="range" data-key="textSize" min="0.02" max="0.6" step="0.01"></label>
+      <label class="field"><span>Posição vertical <output data-for="posY" data-percent></output></span>
+        <input type="range" data-key="posY" min="0" max="1" step="0.01"></label>
+      <label class="switch"><span>Nomes longos em duas linhas (em vez de encolher)</span><input type="checkbox" data-key="wrapLongNames"></label>
+      <label class="field"><span>Contorno <output data-for="outline" data-percent></output></span>
+        <input type="range" data-key="outline" min="0" max="1" step="0.01"></label>
+      <div class="colors">
+        <label><input type="color" data-key="textColor"> Nomes</label>
+        <label><input type="color" data-key="winnerColor"> Sorteado</label>
+        <label><input type="color" data-key="outlineColor"> Contorno</label>
+        <label><input type="color" data-key="bgColor"> Fundo</label>
+      </div>
+      <label class="field"><span>Opacidade do fundo <output data-for="bgOpacity" data-percent></output></span>
+        <input type="range" data-key="bgOpacity" min="0" max="1" step="0.01"></label>
+      <div class="pane-foot"><button class="ghost" data-reset="visual">Restaurar padrão do visual</button></div>
+    </section>
+
+    <section class="pane lock-hide" role="tabpanel" data-pane="textos">
+      <h2>Título</h2>
+      <label class="field"><span>Texto (aparece o tempo todo)</span><input type="text" data-key="title" placeholder="Ex.: Sorteio de brindes · Prêmio: Smart TV"></label>
+      <label class="field"><span>Fonte do título</span>
+        <select class="font-select" data-key="titleFontPath"><option value="">A mesma dos nomes</option></select></label>
+      <label class="field"><span>Tamanho <output data-for="titleSize" data-percent></output></span>
+        <input type="range" data-key="titleSize" min="0.02" max="0.3" step="0.005"></label>
+      <label class="field"><span>Posição vertical <output data-for="titlePosY" data-percent></output></span>
+        <input type="range" data-key="titlePosY" min="0" max="1" step="0.01"></label>
+      <div class="colors"><label><input type="color" data-key="titleColor"> Cor do título</label></div>
+
+      <h3>Tela de espera</h3>
+      <label class="field"><span>Texto (antes de sortear)</span><input type="text" data-key="idleText"></label>
+      <label class="field"><span>Título da tela de ganhadores</span><input type="text" data-key="boardTitle" placeholder="Ganhadores"></label>
+      <label class="field"><span>Tamanho <output data-for="idleSize" data-percent></output></span>
+        <input type="range" data-key="idleSize" min="0.02" max="0.6" step="0.01"></label>
+      <div class="colors"><label><input type="color" data-key="idleColor"> Cor do texto de espera</label></div>
+
+      <h3>Geral</h3>
+      <label class="switch"><span>Manter textos em letra maiúscula</span><input type="checkbox" data-key="uppercase"></label>
+      <label class="switch"><span>Mostrar QR code e endereço deste painel na tela de espera</span><input type="checkbox" data-key="showAddress"></label>
+      <div class="pane-foot"><button class="ghost" data-reset="textos">Restaurar padrão dos textos</button></div>
+    </section>
+
+    <section class="pane" role="tabpanel" data-pane="historico">
+      <h2>Histórico</h2>
+      <ol id="history"></ol>
+      <div class="actions">
+        <button class="ghost" id="copyHistory">Copiar lista</button>
+        <button class="ghost lock-hide" id="resetHistory">Zerar histórico</button>
+      </div>
+    </section>
+  </div>
 </main>
+
+<div id="toasts" aria-live="polite"></div>
 
 <footer>
   Atalhos para Stream Deck / Companion: <code>/api/start?canal=1</code> · <code>/api/clear?canal=1</code><br>
-  Criado por Samuel Vieira · <a href="https://www.instagram.com/osamuelvieira.tecnica/" target="_blank" rel="noopener">@osamuelvieira.tecnica</a>
+  Sorteador <span id="version"></span> · Criado por Samuel Vieira · <a href="https://www.instagram.com/osamuelvieira.tecnica/" target="_blank" rel="noopener">@osamuelvieira.tecnica</a>
 </footer>
 
 <script>
@@ -248,6 +376,8 @@
   let sendTimer = null;
   let pollTimer = null;
   const editing = new Set(); // keys the user is touching right now; never overwritten by polling
+  // "test" makes the big button rehearse on the preview clips, "live" draws on air. Kept per browser.
+  let mode = localStorageGet('modo') === 'test' ? 'test' : 'live';
 
   function localStorageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
   function localStorageSet(key, value) { try { localStorage.setItem(key, value); } catch {} }
@@ -273,17 +403,20 @@
   }
 
   // ---------- rendering ----------
+  // "Brindes" or "Canal 2", as the plugin shows it.
+  const channelLabel = (i) => (state && state.channelNames && state.channelNames[i - 1]) || `Canal ${i}`;
   function renderChannels(count) {
     const tabs = $('#channels');
+    $$('button', tabs).forEach((b, i) => { b.textContent = channelLabel(i + 1); });
     if (tabs.children.length === count) return;
     tabs.innerHTML = '';
     for (let i = 1; i <= count; i++) {
       const b = document.createElement('button');
-      b.textContent = `Canal ${i}`;
+      b.textContent = channelLabel(i);
       b.setAttribute('role', 'tab');
       b.onclick = () => {
         channel = i; localStorageSet('canal', i); lastRevision = -1; pending = {};
-        reels.live = { serial: -1 }; reels.test = { serial: -1 };
+        reels.live = { serial: -1 }; reels.test = { serial: -1 }; qr = { url: null };
         renderTabs(); poll();
       };
       tabs.appendChild(b);
@@ -291,7 +424,10 @@
     renderTabs();
   }
   function renderTabs() {
-    $$('#channels button').forEach((b, i) => b.classList.toggle('active', i + 1 === channel));
+    $$('#channels button').forEach((b, i) => {
+      b.classList.toggle('active', i + 1 === channel);
+      b.setAttribute('aria-selected', String(i + 1 === channel));
+    });
   }
 
   // ---------- output preview ----------
@@ -300,7 +436,7 @@
   const HIGHLIGHT_TIME = 0.3, PULSE_TIME = 0.45, NEIGHBOR_FADE_TIME = 0.5;
   const OUTLINE_SCALE = 0.113; // widest outline of the plugin, as a fraction of the text size
   const FALLBACK_FONT = 'Arial, Helvetica, sans-serif';
-  const phaseNames = { idle: 'Aguardando', spinning: 'Sorteando…', result: 'Resultado' };
+  const phaseNames = { idle: 'Aguardando', spinning: 'Sorteando…', result: 'Resultado', board: 'Ganhadores' };
   const clamp01 = (v) => Math.min(1, Math.max(0, v));
   const mix = (a, b, t) => a + (b - a) * t;
 
@@ -324,8 +460,9 @@
     }).catch(() => { r.loading = 0; });
   }
 
-  // The output's font file, so names have the same width and shape.
-  let font = { key: null, family: FALLBACK_FONT, weight: 'bold', emScale: 1 / 1.15, capRatio: 0.72 };
+  // The output's font files, so names and title have the same width and shape. The title may use its own font.
+  const emptyFont = () => ({ key: null, family: FALLBACK_FONT, weight: 'bold', emScale: 1 / 1.15, capRatio: 0.72 });
+  const fonts = { names: emptyFont(), title: emptyFont() };
   let fontCounter = 0;
   function measureFontMetrics(family, weight) {
     const ctx = document.createElement('canvas').getContext('2d');
@@ -335,21 +472,25 @@
     const height = (m.fontBoundingBoxAscent || 0) + (m.fontBoundingBoxDescent || 0);
     return { emScale: height > 0 ? 100 / height : 1 / 1.15, capRatio: (m.actualBoundingBoxAscent || 72) / 100 * (height > 0 ? 100 / height : 1 / 1.15) };
   }
-  function ensureFont(path) {
+  function ensureFont(slot, path) {
     const key = `${channel}|${path}`;
-    if (font.key === key) return;
-    font = { ...font, key };
+    if (fonts[slot].key === key) return;
+    fonts[slot] = { ...fonts[slot], key };
     const family = `SorteadorFont${++fontCounter}`;
-    const face = new FontFace(family, `url(/api/font?canal=${channel}&f=${encodeURIComponent(path)})`);
+    const face = new FontFace(family, `url(/api/font?canal=${channel}&titulo=${slot === 'title' ? 1 : 0}&f=${encodeURIComponent(path)})`);
     face.load().then(loaded => {
-      if (font.key !== key) return;
+      if (fonts[slot].key !== key) return;
       document.fonts.add(loaded);
-      font = { key, family: `"${family}", ${FALLBACK_FONT}`, weight: 'normal', ...measureFontMetrics(`"${family}"`, 'normal') };
+      fonts[slot] = { key, family: `"${family}", ${FALLBACK_FONT}`, weight: 'normal', ...measureFontMetrics(`"${family}"`, 'normal') };
     }).catch(() => {
       // Collections (.ttc) do not load in every browser; a close system font is used instead.
-      if (font.key === key) font = { key, family: FALLBACK_FONT, weight: 'bold', ...measureFontMetrics(FALLBACK_FONT, 'bold') };
+      if (fonts[slot].key === key) fonts[slot] = { key, family: FALLBACK_FONT, weight: 'bold', ...measureFontMetrics(FALLBACK_FONT, 'bold') };
     });
   }
+
+  // ItemName / ItemDetail: a list line is "name" or "name | detail".
+  const itemName = (item) => item.includes('|') ? item.slice(0, item.indexOf('|')).trim() : item;
+  const itemDetail = (item) => item.includes('|') ? item.slice(item.indexOf('|') + 1).trim() : '';
 
   // Same hash as Random() in the plugin, so particles land in the same places.
   function random(seed, index, salt) {
@@ -363,66 +504,152 @@
   }
 
   // Channel::BuildFrame
-  function buildFrame(run, reel, cfg, now) {
-    const frame = { phase: run.phase, items: [], sinceResult: -1, seed: run.seed };
-    // The plugin moves a finished spin into the result phase on its own; do the same without waiting for a poll.
-    if (frame.phase === 'spinning' && now >= run.startTime + run.spinTime) frame.phase = 'result';
-    const item = (text, offset = 0, alpha = 1) => ({ text, offset, alpha, scale: 1, winnerMix: 0 });
-    const hasReel = reel.serial === run.serial && reel.reel && reel.reel.length;
-    const reelAt = (i) => reel.reel[Math.min(reel.reel.length - 1, Math.max(0, i + reel.pad))];
+  const RESULT_FADE_OUT_TIME = 0.6, IDLE_FADE_IN_TIME = 0.4;
+  const ANIMATION = { vertical: 0, horizontal: 1, flip: 2, wheel: 3, slot: 4 };
+  const ease = (x, decel) => 1 - Math.pow(1 - clamp01(x), decel);
+  const reelPosition = (reel, since, decel) => reel.stop <= 0 ? reel.distance : reel.distance * ease(since / reel.stop, decel);
+  const landing = (seg) => seg.start + seg.spin;
+  function buildFrame(run, data, cfg, now) {
+    const frame = {
+      phase: run.phase, animation: cfg.animation, items: [], landed: false, sinceResult: -1, countdown: false, columns: [], cells: [],
+      board: false, tray: [], wheel: { entries: [], rotation: 0, alpha: 0, winnerIndex: -1, highlight: 0 }, detail: '', fade: 1, seed: run.seed,
+    };
+    const item = (text, offset = 0, alpha = 1, winnerMix = 0) => ({ text, offset, alpha, scale: 1, winnerMix });
+    const segs = data.serial === run.serial && data.segments ? data.segments : [];
+    const reelAt = (reel, i) => reel.entries[Math.min(reel.entries.length - 1, Math.max(0, i + data.pad))];
     const k = cfg.neighbors;
-    const showsReel = cfg.animation !== 2;
+    const grid = segs.length > 1 && data.grid;
+    const end = Math.max(0, ...segs.map(landing));
+    const finalTime = end + (segs.length > 1 && !grid ? data.revealGap : 0);
+    // The plugin moves on through the phases on its own; do the same without waiting for a poll.
+    let clearTime = run.clearTime;
+    if (segs.length && frame.phase === 'spinning' && now >= end) frame.phase = 'result';
+    if (segs.length && frame.phase === 'result' && cfg.autoClear > 0 && now >= finalTime + cfg.autoClear) {
+      frame.phase = 'idle';
+      clearTime = finalTime + cfg.autoClear;
+    }
 
     if (frame.phase === 'idle') {
-      if (cfg.idleText) frame.items.push(item(cfg.idleText));
-    } else if (frame.phase === 'spinning') {
-      if (!hasReel) return frame;
-      const x = clamp01((now - run.startTime) / run.spinTime);
-      const position = run.distance * (1 - Math.pow(1 - x, run.decel));
-      if (!showsReel) {
-        frame.items.push(item(reelAt(Math.round(position))));
-      } else {
-        const base = Math.floor(position);
-        for (let i = base - k - 1; i <= base + k + 1; i++) {
-          const offset = i - position;
-          const alpha = 1 - Math.abs(offset) / (k + 1);
-          if (alpha > 0) frame.items.push(item(reelAt(i), offset, alpha));
-        }
-      }
-    } else {
-      const since = now - (run.startTime + run.spinTime);
-      frame.sinceResult = since;
-      const winner = item(run.winner);
-      winner.winnerMix = clamp01(since / HIGHLIGHT_TIME);
-      winner.scale = 1 + 0.18 * Math.sin(Math.PI * clamp01(since / PULSE_TIME));
-      if (showsReel && hasReel) {
-        const fade = 1 - clamp01(since / NEIGHBOR_FADE_TIME);
-        for (let d = -k - 1; fade > 0 && d <= k + 1; d++) {
-          const alpha = (1 - Math.abs(d) / (k + 1)) * fade;
-          if (d !== 0 && alpha > 0) frame.items.push(item(reelAt(run.distance + d), d, alpha));
-        }
-      }
-      frame.items.push(winner);
+      frame.fade = clamp01((now - clearTime) / IDLE_FADE_IN_TIME);
+      if (cfg.idleText) frame.items.push(item(cfg.idleText, 0, frame.fade));
+      return frame;
     }
+    if (frame.phase === 'board') {
+      frame.board = true;
+      frame.fade = clamp01((now - run.boardTime) / IDLE_FADE_IN_TIME);
+      for (const h of (state ? state.history : [])) if (!h.absent) frame.cells.push({ text: itemName(h.name), layoutText: itemName(h.name), winnerMix: 0, sinceLanded: 1e3 });
+      return frame;
+    }
+    if (!segs.length) return frame;
+    frame.animation = data.animation;
+    if (frame.phase === 'result' && cfg.autoClear > 0)
+      frame.fade = 1 - clamp01((now - finalTime - (cfg.autoClear - RESULT_FADE_OUT_TIME)) / RESULT_FADE_OUT_TIME);
+
+    // "3, 2, 1"
+    const first = segs[0].start;
+    if (now < first) {
+      const left = first - now, number = Math.ceil(left - 1e-9), part = left - (number - 1);
+      const it = item(String(number), 0, clamp01(part / 0.2), 1);
+      it.scale = 0.85 + 0.45 * Math.pow(part, 4);
+      frame.countdown = true;
+      frame.items.push(it);
+      return frame;
+    }
+
+    if (grid) {
+      for (const seg of segs) {
+        const cell = { layoutText: itemName(seg.winner), winnerMix: 0, sinceLanded: -1 };
+        if (now >= landing(seg)) {
+          cell.text = itemName(seg.winner);
+          cell.sinceLanded = now - landing(seg);
+          cell.winnerMix = clamp01(cell.sinceLanded / HIGHLIGHT_TIME);
+        } else {
+          cell.text = reelAt(seg.reels[0], Math.round(reelPosition(seg.reels[0], now - seg.start, data.decel)));
+        }
+        frame.cells.push(cell);
+      }
+      if (now >= end) { frame.landed = true; frame.sinceResult = now - end; }
+      return frame;
+    }
+
+    let current = 0;
+    while (current + 1 < segs.length && now >= segs[current + 1].start) current++;
+    if (segs.length > 1 && now >= finalTime) {
+      for (const seg of segs) frame.cells.push({ text: itemName(seg.winner), layoutText: itemName(seg.winner), winnerMix: 1, sinceLanded: now - landing(seg) });
+      frame.fade = Math.min(frame.fade, clamp01((now - finalTime) / IDLE_FADE_IN_TIME));
+      return frame;
+    }
+    for (let i = 0; i < current; i++) frame.tray.push(itemName(segs[i].winner));
+
+    const seg = segs[current], reel = seg.reels[0];
+    const since = now - seg.start, sinceLanding = now - landing(seg);
+    if (data.animation === ANIMATION.wheel) {
+      const slice = 2 * Math.PI / reel.entries.length;
+      frame.wheel = {
+        entries: reel.entries, winnerIndex: reel.distance % reel.entries.length, rotation: reelPosition(reel, since, data.decel) * slice,
+        highlight: sinceLanding < 0 ? 0 : clamp01(sinceLanding / HIGHLIGHT_TIME),
+        alpha: (sinceLanding < 0 ? 1 : 1 - 0.7 * clamp01(sinceLanding / NEIGHBOR_FADE_TIME)) * frame.fade,
+      };
+    }
+    if (sinceLanding < 0) {
+      if (data.animation === ANIMATION.slot) {
+        for (const column of seg.reels) {
+          const view = { finalText: column.entries[data.pad + column.distance], items: [] };
+          if (since >= column.stop) {
+            view.items.push(item(view.finalText, 0, 1, clamp01((since - column.stop) / HIGHLIGHT_TIME)));
+          } else {
+            const position = reelPosition(column, since, data.decel), base = Math.floor(position);
+            for (let i = base - 1; i <= base + 2; i++) {
+              const offset = i - position, alpha = 1 - Math.abs(offset) / 1.15;
+              if (alpha > 0) view.items.push(item(reelAt(column, i), offset, alpha));
+            }
+          }
+          frame.columns.push(view);
+        }
+      } else if (data.animation === ANIMATION.flip) {
+        frame.items.push(item(reelAt(reel, Math.round(reelPosition(reel, since, data.decel)))));
+      } else if (data.animation !== ANIMATION.wheel) {
+        const position = reelPosition(reel, since, data.decel), base = Math.floor(position);
+        for (let i = base - k - 1; i <= base + k + 1; i++) {
+          const offset = i - position, alpha = 1 - Math.abs(offset) / (k + 1);
+          if (alpha > 0) frame.items.push(item(reelAt(reel, i), offset, alpha));
+        }
+      }
+      return frame;
+    }
+
+    frame.landed = true;
+    frame.sinceResult = sinceLanding;
+    frame.detail = itemDetail(seg.winner);
+    const winner = item(itemName(seg.winner), 0, frame.fade, clamp01(sinceLanding / HIGHLIGHT_TIME));
+    winner.scale = 1 + 0.18 * Math.sin(Math.PI * clamp01(sinceLanding / PULSE_TIME));
+    if (data.animation === ANIMATION.vertical || data.animation === ANIMATION.horizontal) {
+      const fade = 1 - clamp01(sinceLanding / NEIGHBOR_FADE_TIME);
+      for (let d = -k - 1; fade > 0 && d <= k + 1; d++) {
+        const alpha = (1 - Math.abs(d) / (k + 1)) * fade;
+        if (d !== 0 && alpha > 0) frame.items.push(item(reelAt(reel, reel.distance + d), d, alpha));
+      }
+    }
+    frame.items.push(winner);
     return frame;
   }
 
   const rgba = (c, a) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
 
-  function setFont(ctx, sizePx) {
-    ctx.font = `${font.weight} ${Math.max(0.1, sizePx * font.emScale)}px ${font.family}`;
+  function setFont(ctx, sizePx, f = fonts.names) {
+    ctx.font = `${f.weight} ${Math.max(0.1, sizePx * f.emScale)}px ${f.family}`;
   }
-  function measure(ctx, text, sizePx) {
-    setFont(ctx, sizePx);
+  function measure(ctx, text, sizePx, f = fonts.names) {
+    setFont(ctx, sizePx, f);
     return ctx.measureText(text).width;
   }
   // Centered on (x, y) using the cap height, like TextRenderer::AddText.
-  function drawText(ctx, text, x, y, sizePx, color, alpha, outline, outlineColor) {
+  function drawText(ctx, text, x, y, sizePx, color, alpha, outline, outlineColor, f = fonts.names) {
     if (alpha <= 0 || sizePx <= 0) return;
-    setFont(ctx, sizePx);
+    setFont(ctx, sizePx, f);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    const baseline = y + sizePx * font.capRatio * 0.5;
+    const baseline = y + sizePx * f.capRatio * 0.5;
     if (outline > 0) {
       ctx.lineJoin = 'round';
       ctx.lineWidth = 2 * outline * OUTLINE_SCALE * sizePx;
@@ -431,6 +658,29 @@
     }
     ctx.fillStyle = rgba(color, alpha);
     ctx.fillText(text, x, baseline);
+  }
+
+  // FitText and AddBlock
+  const LINE_PITCH = 1.12;
+  function fitText(ctx, text, sizePx, maxWidth, mayWrap, f = fonts.names) {
+    const measured = measure(ctx, text, sizePx, f);
+    if (measured <= maxWidth) return { lines: [text], size: sizePx, width: measured };
+    const oneLine = maxWidth / measured;
+    if (mayWrap) {
+      let best = -1, bestWidth = 0;
+      for (let pos = text.indexOf(' '); pos !== -1; pos = text.indexOf(' ', pos + 1)) {
+        const w = Math.max(measure(ctx, text.slice(0, pos), sizePx, f), measure(ctx, text.slice(pos + 1), sizePx, f));
+        if (best === -1 || w < bestWidth) { best = pos; bestWidth = w; }
+      }
+      const twoLines = best === -1 ? 0 : Math.min(1, maxWidth / bestWidth);
+      if (twoLines > oneLine * 1.15)
+        return { lines: [text.slice(0, best), text.slice(best + 1)], size: sizePx * twoLines, width: bestWidth * twoLines };
+    }
+    return { lines: [text], size: sizePx * oneLine, width: maxWidth };
+  }
+  function drawBlock(ctx, block, x, y, size, color, alpha, outline, outlineColor, f = fonts.names) {
+    const pitch = size * LINE_PITCH;
+    block.lines.forEach((line, i) => drawText(ctx, line, x, y + (i - (block.lines.length - 1) * 0.5) * pitch, size, color, alpha, outline, outlineColor, f));
   }
 
   // TextRenderer::AddShape
@@ -480,7 +730,7 @@
         const angle = 6.28 * random(e.seed, i, 7) + e.t * (random(e.seed, i, 8) - 0.5) * 8;
         const flip = Math.max(0.15, Math.abs(Math.cos(e.t * (3 + 5 * random(e.seed, i, 9)) + 6.28 * random(e.seed, i, 10))));
         const c = CONFETTI[Math.floor(random(e.seed, i, 11) * 6) % 6];
-        shape(ctx, 'solid', x, y, half, half * 1.7 * flip, angle, c, 0.95 * clamp01(e.t / 0.15));
+        shape(ctx, 'solid', x, y, half, half * 1.7 * flip, angle, c, 0.95 * clamp01(e.t / 0.15) * e.fade);
       }
     }
     if (cfg.fxShockwave) {
@@ -490,20 +740,21 @@
         const eased = 1 - Math.pow(1 - p, 3);
         const radius = e.sizePx * 0.6 + e.width * 0.55 * eased * Math.min(1.4, 0.6 + 0.4 * e.intensity);
         const thickness = e.sizePx * 0.18 * (1 - p) + 2 * e.scale;
-        const fade = (1 - p) * (1 - p) * (ring === 0 ? 0.9 : 0.55);
+        const fade = (1 - p) * (1 - p) * (ring === 0 ? 0.9 : 0.55) * e.fade;
         const c = e.winner.map(v => mix(v, 1, 0.5));
         shape(ctx, 'ring', e.x, e.y, radius * 1.35, radius, 0, c, fade, thickness / radius);
       }
     }
     if (cfg.fxGlow) {
       const pulse = 0.6 + 0.25 * Math.sin(e.t * 4);
-      const alpha = pulse * clamp01(e.t / 0.3) * Math.min(1, 0.5 + 0.5 * e.intensity);
-      shape(ctx, 'dot', e.x, e.y, e.textWidth * 0.75 + e.sizePx, e.sizePx * 1.4, 0, e.winner, alpha * 0.5);
+      const alpha = pulse * clamp01(e.t / 0.3) * Math.min(1, 0.5 + 0.5 * e.intensity) * e.fade;
+      const spread = (e.winnerLines.length - 1) * e.linePitch;
+      shape(ctx, 'dot', e.x, e.y, e.textWidth * 0.75 + e.sizePx, e.sizePx * 1.4 + spread * 0.5, 0, e.winner, alpha * 0.5);
       // The plugin draws a soft halo from the distance field; a blurred shadow is the closest canvas equivalent.
       ctx.save();
       ctx.shadowColor = rgba(e.winner, alpha);
       ctx.shadowBlur = e.drawnSize * 0.18;
-      drawText(ctx, e.winnerText, e.x, e.y, e.drawnSize, e.winner, alpha, 0);
+      drawBlock(ctx, { lines: e.winnerLines }, e.x, e.y, e.drawnSize, e.winner, alpha, 0);
       ctx.restore();
     }
   }
@@ -528,14 +779,74 @@
         const cvx = vx * slow, cvy = vy * slow + gravity * e.t;
         const length = Math.max(e.sizePx * 0.05, Math.hypot(cvx, cvy) * 0.04);
         const thickness = e.sizePx * (0.03 + 0.02 * random(e.seed, i, 26));
-        shape(ctx, 'dot', x, y, length, thickness, Math.atan2(cvy, cvx), [1, mix(1, 0.72, age), mix(1, 0.25, age)], Math.pow(1 - age, 1.5));
+        shape(ctx, 'dot', x, y, length, thickness, Math.atan2(cvy, cvx), [1, mix(1, 0.72, age), mix(1, 0.25, age)], Math.pow(1 - age, 1.5) * e.fade);
       }
     }
     if (cfg.fxFlash && e.t < 0.5) {
       const p = 1 - e.t / 0.5;
-      ctx.fillStyle = rgba(e.winner.map(v => mix(1, v, 0.25)), Math.min(1, 0.75 * e.intensity) * p * p * p);
+      ctx.fillStyle = rgba(e.winner.map(v => mix(1, v, 0.25)), Math.min(1, 0.75 * e.intensity) * p * p * p * e.fade);
       ctx.fillRect(0, 0, e.width, e.height);
     }
+  }
+
+  // LayoutGrid
+  function layoutGrid(ctx, texts, maxSize, x0, y0, x1, y1) {
+    const n = texts.length, layout = { size: 0, cellWidth: 0, centers: [] };
+    if (!n) return layout;
+    const unit = texts.map(t => measure(ctx, t, 100) / 100);
+    let columns = 1;
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols), cellW = (x1 - x0) / cols, cellH = (y1 - y0) / rows;
+      let size = Math.min(maxSize, cellH * 0.6);
+      for (const u of unit) if (u > 0) size = Math.min(size, cellW * 0.88 / u);
+      if (size > layout.size) { layout.size = size; columns = cols; }
+    }
+    const rows = Math.ceil(n / columns), cellW = (x1 - x0) / columns, cellH = (y1 - y0) / rows;
+    layout.cellWidth = cellW;
+    for (let i = 0; i < n; i++) {
+      const row = Math.floor(i / columns), col = i % columns;
+      const inRow = row === rows - 1 ? n - row * columns : columns;
+      layout.centers.push([x0 + (columns - inRow) * cellW * 0.5 + (col + 0.5) * cellW, y0 + (row + 0.5) * cellH]);
+    }
+    return layout;
+  }
+
+  // DrawWheel
+  const WHEEL_COLORS = [[0.85, 0.25, 0.3], [0.95, 0.65, 0.15], [0.2, 0.6, 0.9], [0.3, 0.75, 0.4], [0.6, 0.35, 0.85], [0.15, 0.7, 0.7]];
+  function sector(ctx, x, y, radius, angle, half, color, alpha) {
+    if (alpha <= 0) return;
+    ctx.fillStyle = rgba(color, alpha);
+    ctx.beginPath();
+    if (half < Math.PI) ctx.moveTo(x, y);
+    ctx.arc(x, y, radius, angle - half, angle + half);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function drawWheel(ctx, cfg, wheel, centerX, centerY, width, height, upper) {
+    const n = wheel.entries.length;
+    if (wheel.alpha <= 0 || !n) return;
+    const radius = Math.min(height * 0.38, width * 0.42), slice = 2 * Math.PI / n;
+    const angleOf = (i) => -Math.PI / 2 + i * slice - wheel.rotation;
+    const dim = (i) => i === wheel.winnerIndex ? 1 : 1 - 0.6 * wheel.highlight;
+    for (let i = 0; i < n; i++) {
+      const colorIndex = n > 1 && i === n - 1 && i % 6 === 0 ? 3 : i % 6;
+      sector(ctx, centerX, centerY, radius, angleOf(i), Math.max(0.001, slice / 2 - 0.008), WHEEL_COLORS[colorIndex], wheel.alpha * dim(i));
+    }
+    shape(ctx, 'ring', centerX, centerY, radius * 1.03, radius * 1.03, 0, [1, 1, 1], 0.9 * wheel.alpha, 0.04);
+    sector(ctx, centerX, centerY, radius * 0.1, 0, Math.PI, [1, 1, 1], 0.9 * wheel.alpha);
+    const chord = 2 * radius * 0.62 * Math.sin(Math.min(Math.PI / 2, slice / 2));
+    for (let i = 0; i < n; i++) {
+      const label = upper(wheel.entries[i]), angle = angleOf(i);
+      const unit = measure(ctx, label, 100) / 100;
+      let size = Math.min(radius * 0.12, chord * 0.75);
+      if (unit > 0) size = Math.min(size, radius * 0.6 / unit);
+      ctx.save();
+      ctx.translate(centerX + Math.cos(angle) * radius * 0.6, centerY + Math.sin(angle) * radius * 0.6);
+      ctx.rotate(Math.cos(angle) < 0 ? angle + Math.PI : angle);
+      drawText(ctx, label, 0, 0, size, [1, 1, 1], wheel.alpha * dim(i), cfg.outline, cfg.outlineColor);
+      ctx.restore();
+    }
+    sector(ctx, centerX, centerY - radius * 0.94, radius * 0.2, -Math.PI / 2, 0.32, cfg.winnerColor, Math.max(wheel.alpha, 0.6));
   }
 
   // SorteadorPlugin::ProcessOpenGL
@@ -556,34 +867,42 @@
     const upper = (text) => cfg.uppercase ? text.replace(/[^ß]+/g, part => part.toLocaleUpperCase('pt-BR')) : text;
     const title = upper(cfg.title || '');
     frame = { ...frame, items: frame.items.map(it => ({ ...it, text: upper(it.text) })) };
-    const sizePx = cfg.textSize * height;
+    const detail = upper(frame.detail || '');
+    const idle = frame.phase === 'idle';
+    const sizePx = (idle ? cfg.idleSize : cfg.textSize) * height * (frame.countdown ? 1.6 : 1);
     const centerX = width * 0.5, centerY = (1 - cfg.posY) * height;
     const maxWidth = width * 0.92;
-    const horizontal = cfg.animation === 1 && frame.phase !== 'idle';
+    const horizontal = frame.animation === ANIMATION.horizontal && !idle;
+
+    drawWheel(ctx, cfg, frame.wheel, centerX, centerY, width, height, upper);
+
     const items = frame.items.slice().sort((a, b) => a.offset - b.offset);
-    const sizes = [], widths = [], positions = items.map(() => centerX);
-    items.forEach((it, i) => {
-      const measured = measure(ctx, it.text, sizePx);
-      const fit = measured > maxWidth ? maxWidth / measured : 1;
-      sizes[i] = sizePx * fit;
-      widths[i] = measured * fit;
+    const positions = items.map(() => centerX);
+    const blocks = items.map(it => {
+      const still = idle || frame.animation === ANIMATION.flip || (frame.landed && Math.abs(it.offset) < 1e-4);
+      return fitText(ctx, it.text, sizePx, maxWidth, cfg.wrapLongNames && still && !frame.countdown);
     });
 
     if (horizontal && items.length) {
       let anchor = 0;
       items.forEach((it, i) => { if (it.offset <= 1e-4) anchor = i; });
       const gap = sizePx * 0.9;
-      const pitch = (a, b) => widths[a] * 0.5 + gap + widths[b] * 0.5;
+      const pitch = (a, b) => blocks[a].width * 0.5 + gap + blocks[b].width * 0.5;
       if (anchor + 1 < items.length) positions[anchor] = centerX + items[anchor].offset * pitch(anchor, anchor + 1);
       for (let i = anchor + 1; i < items.length; i++) positions[i] = positions[i - 1] + pitch(i - 1, i);
       for (let i = anchor - 1; i >= 0; i--) positions[i] = positions[i + 1] - pitch(i, i + 1);
     }
 
     let winnerIndex = -1;
-    if (frame.phase === 'result' && frame.sinceResult >= 0)
-      items.forEach((it, i) => { if (Math.abs(it.offset) < 1e-4) winnerIndex = i; });
+    if (frame.landed) items.forEach((it, i) => { if (Math.abs(it.offset) < 1e-4) winnerIndex = i; });
+
+    const cellTexts = frame.cells.map((c, i) => upper((frame.board ? `${i + 1}. ` : '') + c.text));
+    const layoutTexts = frame.cells.map((c, i) => upper((frame.board ? `${i + 1}. ` : '') + c.layoutText));
+    const gridTop = height * (frame.board ? 0.32 : 0.22);
+    const grid = layoutGrid(ctx, layoutTexts, cfg.textSize * height, width * 0.04, gridTop, width * 0.96, height * 0.93);
 
     let fx = null, shakeX = 0, shakeY = 0;
+    const fxBase = { t: frame.sinceResult, intensity: cfg.fxIntensity, width, height, scale: height / 720, winner: cfg.winnerColor, seed: frame.seed, fade: frame.fade };
     if (winnerIndex >= 0) {
       const t = frame.sinceResult;
       if (cfg.fxImpact) {
@@ -593,61 +912,243 @@
         shakeX = shake * Math.sin(t * 71 + (frame.seed % 97));
         shakeY = shake * Math.sin(t * 59 + (frame.seed % 89));
       }
-      fx = {
-        t, intensity: cfg.fxIntensity, width, height, x: positions[winnerIndex], y: centerY, sizePx, scale: height / 720,
-        drawnSize: sizes[winnerIndex] * items[winnerIndex].scale, textWidth: widths[winnerIndex] * items[winnerIndex].scale,
-        winnerText: items[winnerIndex].text, winner: cfg.winnerColor, seed: frame.seed,
-      };
-      backEffects(ctx, cfg, fx);
+      const block = blocks[winnerIndex];
+      const drawnSize = block.size * items[winnerIndex].scale;
+      fx = { ...fxBase, x: positions[winnerIndex], y: centerY, sizePx, drawnSize, textWidth: block.width * items[winnerIndex].scale,
+        winnerLines: block.lines, linePitch: drawnSize * LINE_PITCH };
+    } else if (frame.landed && frame.cells.length) {
+      fx = { ...fxBase, x: width * 0.5, y: (gridTop + height * 0.93) * 0.5, sizePx: grid.size, drawnSize: grid.size, textWidth: width * 0.6,
+        winnerLines: [], linePitch: grid.size * LINE_PITCH };
     }
+    if (fx) backEffects(ctx, cfg, fx);
 
     const lineSpacing = sizePx * 1.35;
+    const winnerExtra = winnerIndex >= 0 ? (blocks[winnerIndex].lines.length - 1) * blocks[winnerIndex].size * LINE_PITCH * 0.5 : 0;
+    const drum = cfg.drum && !horizontal && !idle;
+    const step = Math.PI * 0.5 / (cfg.neighbors + 1.5);
     items.forEach((it, i) => {
-      const y = horizontal ? centerY : centerY + it.offset * lineSpacing;
-      const color = [0, 1, 2].map(c => mix(cfg.textColor[c], cfg.winnerColor[c], it.winnerMix));
-      drawText(ctx, it.text, positions[i] + shakeX, y + shakeY, sizes[i] * it.scale, color, it.alpha, cfg.outline, cfg.outlineColor);
+      let y = centerY, depth = 1;
+      if (!horizontal) {
+        if (drum) {
+          const angle = Math.min(Math.PI / 2, Math.max(-Math.PI / 2, it.offset * step));
+          y = centerY + lineSpacing / step * Math.sin(angle);
+          depth = 0.55 + 0.45 * Math.cos(angle);
+        } else {
+          y = centerY + it.offset * lineSpacing;
+        }
+        if (i !== winnerIndex) y += it.offset > 0 ? winnerExtra : (it.offset < 0 ? -winnerExtra : 0);
+      }
+      const base = idle ? cfg.idleColor : cfg.textColor;
+      const color = [0, 1, 2].map(c => mix(base[c], cfg.winnerColor[c], it.winnerMix));
+      drawBlock(ctx, blocks[i], positions[i] + shakeX, y + shakeY, blocks[i].size * it.scale * depth, color, it.alpha, cfg.outline, cfg.outlineColor);
     });
+
+    // Slot machine columns
+    if (frame.columns.length) {
+      const widths = frame.columns.map(c => measure(ctx, upper(c.finalText), sizePx));
+      const total = widths.reduce((a, b) => a + b, 0);
+      const fit = total > maxWidth ? maxWidth / total : 1, size = sizePx * fit;
+      let x = centerX - total * fit * 0.5;
+      frame.columns.forEach((column, c) => {
+        const columnX = x + widths[c] * fit * 0.5;
+        x += widths[c] * fit;
+        if (column.finalText !== ' ') {
+          const halfW = widths[c] * fit * 0.46, halfH = size * 0.62;
+          ctx.fillStyle = rgba([0, 0, 0], 0.45 * frame.fade);
+          ctx.fillRect(columnX - halfW, centerY - halfH, 2 * halfW, 2 * halfH);
+        }
+        for (const it of column.items) {
+          const color = [0, 1, 2].map(i => mix(cfg.textColor[i], cfg.winnerColor[i], it.winnerMix));
+          const depth = 1 - 0.25 * Math.min(1, Math.abs(it.offset));
+          drawText(ctx, upper(it.text), columnX, centerY + it.offset * size, size * depth, color, it.alpha, cfg.outline, cfg.outlineColor);
+        }
+      });
+    }
+
+    if (frame.board) {
+      const block = fitText(ctx, upper(cfg.boardTitle || ''), cfg.textSize * height * 0.6, maxWidth, false);
+      drawBlock(ctx, block, centerX, height * 0.24, block.size, cfg.winnerColor, frame.fade, cfg.outline, cfg.outlineColor);
+    }
+    frame.cells.forEach((cell, i) => {
+      const landed = cell.sinceLanded >= 0;
+      let scale = 1;
+      if (landed && !frame.board && cfg.fxImpact) {
+        const t = cell.sinceLanded;
+        scale += 0.35 * Math.min(1.5, cfg.fxIntensity) * Math.exp(-6 * t) * Math.cos(9 * t) * clamp01(t / 0.04);
+      }
+      const alpha = frame.fade * (landed ? 1 : 0.8);
+      const unit = measure(ctx, cellTexts[i], 100) / 100;
+      const cellSize = unit > 0 ? Math.min(grid.size, grid.cellWidth * 0.92 / unit) : grid.size;
+      const [x, y] = grid.centers[i];
+      if (landed && !frame.board && cfg.fxGlow) {
+        const glow = alpha * (0.6 + 0.25 * Math.sin(cell.sinceLanded * 4)) * clamp01(cell.sinceLanded / 0.3);
+        ctx.save();
+        ctx.shadowColor = rgba(cfg.winnerColor, glow);
+        ctx.shadowBlur = cellSize * scale * 0.18;
+        drawText(ctx, cellTexts[i], x, y, cellSize * scale, cfg.winnerColor, glow, 0);
+        ctx.restore();
+      }
+      const color = [0, 1, 2].map(c => mix(cfg.textColor[c], cfg.winnerColor[c], cell.winnerMix));
+      drawText(ctx, cellTexts[i], x, y, cellSize * scale, color, alpha, cfg.outline, cfg.outlineColor);
+    });
+
+    if (frame.tray.length) {
+      const block = fitText(ctx, frame.tray.map(upper).join('   ·   '), cfg.textSize * height * 0.38, maxWidth, false);
+      drawBlock(ctx, block, centerX, height * 0.9, block.size, cfg.winnerColor, 0.9 * frame.fade, cfg.outline, cfg.outlineColor);
+    }
+
+    if (winnerIndex >= 0 && detail) {
+      const it = items[winnerIndex], block = blocks[winnerIndex];
+      const line = fitText(ctx, detail, sizePx * 0.4, maxWidth, false);
+      const drawn = block.size * it.scale;
+      const y = centerY + (block.lines.length - 1) * drawn * LINE_PITCH * 0.5 + drawn * 0.5 + line.size * 0.75;
+      drawBlock(ctx, line, positions[winnerIndex] + shakeX, y + shakeY, line.size, cfg.textColor, it.winnerMix * frame.fade, cfg.outline, cfg.outlineColor);
+    }
     if (fx) frontEffects(ctx, cfg, fx);
 
-    if (title) {
-      let titleSize = sizePx * 0.45;
-      const measured = measure(ctx, title, titleSize);
-      if (measured > width * 0.92) titleSize *= width * 0.92 / measured;
-      drawText(ctx, title, centerX, height * 0.12, titleSize, cfg.textColor, 1, cfg.outline, cfg.outlineColor);
+    if (idle && cfg.showAddress && state && state.address) {
+      // Same corner QR code as the plugin.
+      ensureQr();
+      const margin = height * 0.03;
+      let qrSide = 0;
+      if (qr.modules && qr.modules.length) {
+        const quiet = 2, cells = qr.modules.length + 2 * quiet;
+        const module = Math.max(2, Math.floor(height * 0.2 / cells));
+        qrSide = module * cells;
+        const x0 = Math.floor(width - margin - qrSide), y0 = Math.floor(height - margin - qrSide);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x0, y0, qrSide, qrSide);
+        ctx.fillStyle = '#000';
+        qr.modules.forEach((row, y) => [...row].forEach((m, x) => {
+          if (m === '1') ctx.fillRect(x0 + (quiet + x) * module, y0 + (quiet + y) * module, module, module);
+        }));
+        drawText(ctx, 'Controle pelo celular', x0 + qrSide * 0.5, y0 - height * 0.025, height * 0.025, [1, 1, 1], 0.75, cfg.outline, cfg.outlineColor);
+      }
+      const line = `Controle web: ${state.address}  (canal ${channel})`;
+      let lineSize = height * 0.035;
+      const room = width - 2 * (qrSide + 2 * margin), measured = measure(ctx, line, lineSize);
+      if (room > 0 && measured > room) lineSize *= room / measured;
+      drawText(ctx, line, centerX, height * 0.94, lineSize, [1, 1, 1], 0.75, cfg.outline, cfg.outlineColor);
     }
-    if (frame.phase === 'idle' && cfg.showAddress && state && state.address)
-      drawText(ctx, `Controle web: ${state.address}  (canal ${channel})`, centerX, height * 0.94, height * 0.035, [1, 1, 1], 0.75, cfg.outline, cfg.outlineColor);
     if (isTest) {
       const tag = 'PRÉVIA - TESTE', tagSize = height * 0.04;
       drawText(ctx, tag, height * 0.03 + measure(ctx, tag, tagSize) * 0.5, height * 0.05, tagSize, [1, 0.82, 0.2], 0.9, cfg.outline, cfg.outlineColor);
     }
+    // The plugin draws the title last, with its own font.
+    if (title) {
+      const block = fitText(ctx, title, cfg.titleSize * height, maxWidth, false, fonts.title);
+      drawBlock(ctx, block, centerX, (1 - cfg.titlePosY) * height, block.size, cfg.titleColor, 1, cfg.outline, cfg.outlineColor, fonts.title);
+    }
   }
 
+  // The QR code of the waiting screen, fetched once per channel and address.
+  let qr = { url: null };
+  function ensureQr() {
+    const key = `${channel}|${state.address}`;
+    if (qr.key === key) return;
+    qr = { key };
+    fetch(`/api/qr?canal=${channel}`).then(res => res.json()).then(data => { if (qr.key === key) Object.assign(qr, data); }).catch(() => {});
+  }
+
+  // The stage shows the draw the big button runs: the rehearsal in "Ensaio", the output in "Ao vivo".
   function renderStages() {
     requestAnimationFrame(renderStages);
     if (!state || clockOffset === null) return;
     // Edits show up right away; the output follows as soon as they are sent.
     const cfg = { ...state.config, ...pending };
-    ensureFont(cfg.fontPath);
+    ensureFont('names', cfg.fontPath);
+    ensureFont('title', cfg.titleFontPath || cfg.fontPath);
     const now = pluginNow();
-    for (const [kind, run, canvas] of [['live', state.run, $('#liveCanvas')], ['test', state.testRun, $('#testCanvas')]]) {
-      ensureReel(kind, run);
-      const frame = buildFrame(run, reels[kind], cfg, now);
-      drawStage(canvas, frame, cfg, kind === 'test');
-      const progress = run.phase === 'idle' ? 0 : clamp01((now - run.startTime) / run.spinTime);
-      $(`#${kind}Phase`).textContent = phaseNames[frame.phase];
-      $(`#${kind}Progress`).style.width = `${progress * 100}%`;
-    }
+    const run = mode === 'test' ? state.testRun : state.run;
+    ensureReel(mode, run);
+    const frame = buildFrame(run, reels[mode], cfg, now);
+    drawStage($('#stageCanvas'), frame, cfg, mode === 'test');
+    const progress = frame.phase === 'result' ? 1
+      : frame.phase === 'spinning' && run.endTime > run.startTime ? clamp01((now - run.startTime) / (run.endTime - run.startTime)) : 0;
+    $('#stagePhase').textContent = phaseNames[frame.phase];
+    $('#stageProgress').style.width = `${progress * 100}%`;
   }
   requestAnimationFrame(renderStages);
 
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function renderMode() {
+    document.body.dataset.mode = mode;
+    $$('#modeSwitch button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    const test = mode === 'test';
+    $('#stageTitle').textContent = test ? 'Sorteio de teste' : 'Ao vivo';
+    $('#badge').textContent = test ? 'ENSAIO' : 'NO AR';
+    $('#startLabel').textContent = test ? 'Sorteio de teste' : 'Iniciar sorteio';
+    $('#clear').textContent = test ? 'Limpar teste' : 'Limpar tela';
+    $('#board').title = test ? 'Mostra os ganhadores só nos clips em Modo prévia' : 'Mostra na tela todos os sorteados até agora';
+    $('#modeHint').innerHTML = test
+      ? 'O teste roda a animação e os efeitos completos, mas <strong>não vai para o ar</strong> e não conta no histórico. Atalho: barra de espaço.'
+      : 'Atalho: <strong>segure</strong> a barra de espaço para sortear. Para ensaiar sem ir para o ar, mude para <strong>Ensaio</strong>.';
+    if (state) renderLive(state);
+  }
+
+  // Whether the draw the big button runs will actually show anywhere.
+  function renderClips(s) {
+    const el = $('#outputs');
+    const live = s.outputs ? s.outputs.live : 0, preview = s.outputs ? s.outputs.preview : 0;
+    let ok, text;
+    if (mode === 'test') {
+      ok = preview > 0;
+      text = ok
+        ? `● ${plural(preview, 'clip em Modo prévia mostra', 'clips em Modo prévia mostram')} o teste. A saída não muda.`
+        : `⚠ Nenhum clip do canal ${channel} em Modo prévia (teste) está rodando: o teste não aparece em lugar nenhum. Duplique o clip e ligue Modo prévia.`;
+    } else {
+      ok = live > 0;
+      text = ok
+        ? `● ${plural(live, 'clip do canal', 'clips do canal')} ${channel} ${live === 1 ? 'está' : 'estão'} rodando no Resolume.`
+        : `⚠ Nenhum clip do canal ${channel} está rodando no Resolume: o sorteio não vai aparecer na tela. Dispare o clip do Sorteador.`;
+    }
+    el.textContent = text;
+    el.className = `outputs ${ok ? 'ok' : 'warn'}`;
+  }
+
+  // "Ausente, sortear de novo" asks for a second click, so a slip of the finger never marks someone absent on air.
+  let redrawArmed = null;
+  function disarmRedraw() {
+    clearTimeout(redrawArmed);
+    redrawArmed = null;
+    $('#redraw').classList.remove('confirm');
+    $('#redraw').textContent = 'Ausente, sortear de novo';
+  }
+  function canRedraw(s) {
+    const last = s.history[s.history.length - 1];
+    return s.phase === 'result' && last && !last.absent && last.name === s.winner;
+  }
+
   function renderLive(s) {
     $('#message').textContent = s.message || '';
-    $('#start').disabled = s.phase === 'spinning';
-    $('#test').disabled = s.test.phase === 'spinning';
+    const run = mode === 'test' ? s.test : s;
+    $('#start').disabled = run.phase === 'spinning';
+    const redraw = mode === 'live' && canRedraw(s);
+    $('#redraw').classList.toggle('hidden', !redraw);
+    if (!redraw && redrawArmed) disarmRedraw();
     $('#available').textContent = s.config.noRepeat
       ? `${s.available} de ${s.total} disponíveis para sortear`
       : `${s.total} opções`;
+    renderClips(s);
+    document.body.classList.toggle('locked', !!s.locked);
+    $('#lock').textContent = s.locked ? '🔒 Travado' : 'Travar';
+  }
+
+  // ---------- toasts ----------
+  function toast(text, action) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = text;
+    if (action) {
+      const b = document.createElement('button');
+      b.textContent = action.label;
+      b.onclick = () => { el.remove(); action.run(); };
+      el.appendChild(b);
+    }
+    $('#toasts').appendChild(el);
+    while ($('#toasts').children.length > 3) $('#toasts').firstChild.remove();
+    setTimeout(() => el.remove(), action ? 8000 : 3500);
   }
 
   const dateFormat = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -662,11 +1163,21 @@
     }
     history.forEach((entry, i) => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="n">${i + 1}º</span><span class="name"></span><time></time><button title="Remover do histórico" aria-label="Remover">×</button>`;
-      li.querySelector('.name').textContent = entry.name;
+      li.innerHTML = `<span class="n">${i + 1}º</span><span class="name"></span>${entry.absent ? '<span class="tag">ausente</span>' : ''}<time></time><button title="Remover do histórico" aria-label="Remover">×</button>`;
+      if (entry.absent) li.classList.add('absent');
+      li.querySelector('.name').textContent = itemName(entry.name);
+      if (itemDetail(entry.name)) {
+        const d = document.createElement('span');
+        d.className = 'detail';
+        d.textContent = ` · ${itemDetail(entry.name)}`;
+        li.querySelector('.name').appendChild(d);
+      }
       li.querySelector('time').textContent = formatTime(entry.time);
       if (entry.time) li.querySelector('time').dateTime = new Date(entry.time * 1000).toISOString();
-      li.querySelector('button').onclick = () => api(`/api/history/remove?index=${i}`, {}).then(apply).catch(showError);
+      li.querySelector('button').onclick = () => {
+        if (!confirm(`Remover "${entry.name}" do histórico? ${state.config.noRepeat ? 'Volta a poder ser sorteado.' : ''}`)) return;
+        api(`/api/history/remove?index=${i}`, {}).then(s => { apply(s); toast(`"${entry.name}" removido do histórico`); }).catch(showError);
+      };
       list.appendChild(li);
     });
   }
@@ -682,8 +1193,8 @@
         el.checked = !!value;
       } else if (el.type === 'color') {
         el.value = toHex(value);
-      } else if (el.id === 'font') {
-        ensureFontOption(value);
+      } else if (el.classList.contains('font-select')) {
+        ensureFontOption(el, value);
         el.value = value;
       } else {
         el.value = value;
@@ -702,25 +1213,39 @@
     for (const out of $$('output[data-for]')) {
       const v = Number(currentValue(out.dataset.for));
       if (Number.isNaN(v)) continue;
-      out.textContent = out.hasAttribute('data-percent')
-        ? `${Math.round(v * 100)}%`
+      out.textContent = v === 0 && out.dataset.zero ? out.dataset.zero
+        : out.hasAttribute('data-percent') ? `${Math.round(v * 100)}%`
         : v.toFixed(Number(out.dataset.digits || 0)) + (out.dataset.unit || '');
     }
     const lines = ($('#listText').value || '').split('\n').filter(l => l.trim()).length;
     $('#listCount').textContent = `${lines} ${lines === 1 ? 'item' : 'itens'}`;
+    scheduleListWarnings();
   }
 
   function renderModeFields() {
     const numbers = Number(currentValue('mode')) === 1;
     $('#listFields').classList.toggle('hidden', numbers);
     $('#numberFields').classList.toggle('hidden', !numbers);
+    const several = Number(currentValue('drawCount')) > 1, grid = Number(currentValue('reveal')) === 1;
+    $('#revealFields').classList.toggle('hidden', !several);
+    $('#revealGapField').classList.toggle('hidden', grid);
+    $('#revealHint').textContent = grid
+      ? 'Todos giram juntos, cada um no seu lugar da grade, e param um depois do outro.'
+      : 'Cada ganhador tem seu sorteio com a animação escolhida; os anteriores ficam no rodapé e, no fim, todos aparecem juntos.';
+    const animation = Number(currentValue('animation'));
+    $('#animationHint').textContent = animation === 3
+      ? 'A roda mostra até 16 fatias: o sorteado e outros da lista. Com muitos nomes, cada giro escolhe quais aparecem.'
+      : animation === 4 ? 'Cada caractere gira sozinho e eles param da esquerda para a direita. Fica melhor com números.' : '';
   }
 
   function apply(s) {
     state = s;
+    $('#version').textContent = s.version ? `v${s.version}` : '';
     setConnected(true, 'Conectado');
     renderChannels(s.numChannels);
     renderLive(s);
+    renderPanes();
+    renderChannelTools(s);
     if (s.revision !== lastRevision) {
       lastRevision = s.revision;
       renderConfig(s.config);
@@ -766,6 +1291,7 @@
       for (const k of Object.keys(body)) if (pending[k] === body[k]) delete pending[k];
       lastRevision = -1;
       apply(s);
+      if ('listText' in body) toast(`Lista salva · ${plural(s.total, 'item', 'itens')}`);
     } catch (err) {
       showError(err);
     }
@@ -796,13 +1322,42 @@
     });
   }
 
-  $('#start').onclick = () => api('/api/start', {}).then(apply).catch(showError);
-  $('#clear').onclick = () => api('/api/clear', {}).then(apply).catch(showError);
-  $('#test').onclick = () => api('/api/test', {}).then(apply).catch(showError);
-  $('#testClear').onclick = () => api('/api/test/clear', {}).then(apply).catch(showError);
+  $('#start').onclick = () => api(mode === 'test' ? '/api/test' : '/api/start', {}).then(apply).catch(showError);
+  $('#clear').onclick = () => api(mode === 'test' ? '/api/test/clear' : '/api/clear', {}).then(apply).catch(showError);
+  $('#board').onclick = () => api(mode === 'test' ? '/api/test/board' : '/api/board', {}).then(apply).catch(showError);
+  $('#redraw').onclick = () => {
+    if (!redrawArmed) {
+      $('#redraw').classList.add('confirm');
+      $('#redraw').textContent = `Confirmar: ${itemName(state.winner)} ausente`;
+      redrawArmed = setTimeout(disarmRedraw, 4000);
+      return;
+    }
+    const name = itemName(state.winner);
+    disarmRedraw();
+    api('/api/redraw', {}).then(s => { apply(s); toast(`"${name}" marcado como ausente. Sorteando de novo…`); }).catch(showError);
+  };
+  $$('#modeSwitch button').forEach(b => b.onclick = () => {
+    mode = b.dataset.mode;
+    localStorageSet('modo', mode);
+    disarmRedraw();
+    renderMode();
+  });
+  $('#lock').onclick = () => {
+    if (state && state.locked) return $('#unlock').click();
+    api('/api/lock?on=1', {}).then(s => { apply(s); toast(`Configurações do canal ${channel} travadas`); }).catch(showError);
+  };
+  $('#unlock').onclick = () => {
+    if (confirm(`Destravar as configurações do canal ${channel}? Todos os painéis voltam a poder mudar lista, visual e histórico.`))
+      api('/api/lock?on=0', {}).then(s => { apply(s); toast(`Configurações do canal ${channel} destravadas`); }).catch(showError);
+  };
   $('#resetHistory').onclick = () => {
     if (confirm('Zerar o histórico deste canal? Todos voltam a poder ser sorteados.'))
-      api('/api/reset-history', {}).then(apply).catch(showError);
+      api('/api/reset-history', {}).then(s => {
+        apply(s);
+        if (s.canUndoReset) toast('Histórico zerado', {
+          label: 'Desfazer', run: () => api('/api/history/undo-reset', {}).then(s => { apply(s); toast('Histórico recuperado'); }).catch(showError),
+        });
+      }).catch(showError);
   };
   // The Clipboard API only exists on https or localhost; on the network address the panel falls back to execCommand.
   async function copyText(text) {
@@ -824,39 +1379,257 @@
   }
   $('#copyHistory').onclick = async () => {
     const text = (state ? state.history : [])
-      .map((h, i) => `${i + 1}. ${h.name}` + (h.time ? ` - ${formatTime(h.time)}` : '')).join('\n');
-    $('#copyHistory').textContent = await copyText(text) ? 'Copiado!' : 'Não foi possível copiar';
-    setTimeout(() => $('#copyHistory').textContent = 'Copiar lista', 1500);
+      .map((h, i) => `${i + 1}. ${h.name}` + (h.absent ? ' (ausente)' : '') + (h.time ? ` - ${formatTime(h.time)}` : '')).join('\n');
+    toast(await copyText(text) ? 'Lista copiada' : 'Não foi possível copiar');
   };
 
   // ---------- fonts ----------
-  function ensureFontOption(path) {
-    const select = $('#font');
+  function ensureFontOption(select, path) {
     if (!path || $$('option', select).some(o => o.value === path)) return;
     const o = document.createElement('option');
     o.value = path;
     o.textContent = path.split(/[\\/]/).pop();
     select.appendChild(o);
   }
-  fetch('/api/fonts').then(r => r.json()).then(({ fonts }) => {
-    const select = $('#font');
-    const chosen = currentValue('fontPath');
-    for (const f of fonts) {
-      if ($$('option', select).some(o => o.value === f.path)) continue;
-      const o = document.createElement('option');
-      o.value = f.path;
-      o.textContent = f.name;
-      select.appendChild(o);
+  fetch('/api/fonts').then(r => r.json()).then(({ fonts: list }) => {
+    for (const select of $$('.font-select')) {
+      const chosen = currentValue(select.dataset.key);
+      for (const f of list) {
+        if ($$('option', select).some(o => o.value === f.path)) continue;
+        const o = document.createElement('option');
+        o.value = f.path;
+        o.textContent = f.name;
+        select.appendChild(o);
+      }
+      if (chosen !== undefined) select.value = chosen;
     }
-    if (chosen !== undefined) select.value = chosen;
   }).catch(() => {});
 
-  // Space bar starts a draw when not typing, handy on a laptop next to the operator.
-  document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
-    e.preventDefault();
-    if (!$('#start').disabled) $('#start').click();
+  // ---------- settings tabs ----------
+  // Locked channels only show the history, the one tab that is not a setting.
+  let pane = localStorageGet('aba') || 'conteudo';
+  function renderPanes() {
+    const locked = state && state.locked;
+    const shown = locked ? 'historico' : pane;
+    $$('#paneTabs button').forEach(b => {
+      const on = b.dataset.pane === shown;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+      b.id = `tab-${b.dataset.pane}`;
+      b.setAttribute('aria-controls', `pane-${b.dataset.pane}`);
+    });
+    $$('.pane').forEach(p => {
+      p.id = `pane-${p.dataset.pane}`;
+      p.setAttribute('aria-labelledby', `tab-${p.dataset.pane}`);
+      p.classList.toggle('active', p.dataset.pane === shown);
+    });
+  }
+  $$('#paneTabs button').forEach(b => b.addEventListener('click', () => {
+    pane = b.dataset.pane;
+    localStorageSet('aba', pane);
+    renderPanes();
+  }));
+  // Arrow keys move between tabs, as in any tab list.
+  $('#paneTabs').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = $$('#paneTabs button').filter(b => getComputedStyle(b).display !== 'none');
+    const i = tabs.indexOf(document.activeElement);
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    next.click();
+    next.focus();
   });
+
+  // ---------- presets and defaults ----------
+  // Settings a preset or a "Restaurar padrão" may change. Texts and the list are never touched.
+  const STYLE_KEYS = {
+    animacao: ['animation', 'duration', 'speed', 'decel', 'neighbors', 'drum', 'autoClear', 'countdown',
+      'fxImpact', 'fxFlash', 'fxShockwave', 'fxSparks', 'fxConfetti', 'fxGlow', 'fxIntensity'],
+    visual: ['fontPath', 'textSize', 'posY', 'outline', 'textColor', 'winnerColor', 'outlineColor', 'bgColor', 'bgOpacity', 'wrapLongNames'],
+    textos: ['titleFontPath', 'titleSize', 'titlePosY', 'titleColor', 'idleSize', 'idleColor', 'uppercase'],
+  };
+  const FX_OFF = { fxImpact: false, fxFlash: false, fxShockwave: false, fxSparks: false, fxConfetti: false, fxGlow: false };
+  const PRESETS = [
+    { name: 'Clássico', values: { textColor: [1, 1, 1], winnerColor: [1, 1, 1], outlineColor: [0, 0, 0], outline: 0.3, titleColor: [1, 1, 1], idleColor: [1, 1, 1],
+      ...FX_OFF, fxImpact: true, fxFlash: true, fxSparks: true } },
+    { name: 'Dourado', values: { textColor: [1, 0.96, 0.88], winnerColor: [1, 0.8, 0.28], outlineColor: [0.22, 0.12, 0], outline: 0.35,
+      titleColor: [1, 0.8, 0.28], idleColor: [1, 0.8, 0.28], ...FX_OFF, fxImpact: true, fxFlash: true, fxSparks: true, fxConfetti: true, fxGlow: true } },
+    { name: 'Neon', values: { textColor: [0.55, 0.92, 1], winnerColor: [1, 0.32, 0.86], outlineColor: [0.06, 0, 0.16], outline: 0.25,
+      titleColor: [0.55, 0.92, 1], idleColor: [1, 0.32, 0.86], ...FX_OFF, fxFlash: true, fxShockwave: true, fxGlow: true } },
+    { name: 'Minimalista', values: { textColor: [0.82, 0.84, 0.88], winnerColor: [1, 1, 1], outlineColor: [0, 0, 0], outline: 0,
+      titleColor: [0.82, 0.84, 0.88], idleColor: [1, 1, 1], ...FX_OFF, fxImpact: true, fxIntensity: 0.6 } },
+    { name: 'Bingo', values: { textColor: [1, 1, 1], winnerColor: [1, 0.86, 0.2], outlineColor: [0, 0, 0], outline: 0.45, textSize: 0.3,
+      titleColor: [1, 1, 1], idleColor: [1, 0.86, 0.2], animation: 2, ...FX_OFF, fxImpact: true, fxFlash: true, fxShockwave: true } },
+  ];
+  // Applies a set of values and offers to put the previous ones back.
+  function applyValues(values, message) {
+    const before = {};
+    for (const k of Object.keys(values)) before[k] = currentValue(k);
+    api('/api/config', values).then(s => {
+      lastRevision = -1;
+      apply(s);
+      toast(message, { label: 'Desfazer', run: () => api('/api/config', before).then(s => { lastRevision = -1; apply(s); }).catch(showError) });
+    }).catch(showError);
+  }
+  for (const preset of PRESETS) {
+    const b = document.createElement('button');
+    const v = preset.values;
+    b.innerHTML = `<span class="swatch">${[v.textColor, v.winnerColor, v.titleColor].map(c => `<i style="background:${toHex(c)}"></i>`).join('')}</span> `;
+    b.append(preset.name);
+    b.title = `Aplica cores e efeitos do estilo ${preset.name}. Textos e lista não mudam.`;
+    b.onclick = () => applyValues(preset.values, `Estilo "${preset.name}" aplicado`);
+    $('#presets').appendChild(b);
+  }
+  // ---------- this channel: name, export, import, copy the look ----------
+  function renderChannelTools(s) {
+    if (document.activeElement !== $('#channelName')) $('#channelName').value = s.channelNames[s.channel - 1] || '';
+    const select = $('#copyTarget'), chosen = select.value;
+    select.innerHTML = '';
+    for (let i = 1; i <= s.numChannels; i++) {
+      if (i === s.channel) continue;
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = `Para ${s.channelNames[i - 1] || `Canal ${i}`}`;
+      select.appendChild(o);
+    }
+    if (chosen) select.value = chosen;
+  }
+  $('#channelName').addEventListener('change', () => {
+    api(`/api/rename?nome=${encodeURIComponent($('#channelName').value.trim())}`, {}).then(s => {
+      apply(s);
+      renderChannels(s.numChannels);
+      toast(s.channelNames[s.channel - 1] ? `Canal renomeado para "${s.channelNames[s.channel - 1]}"` : 'Nome do canal removido');
+    }).catch(showError);
+  });
+
+  $('#exportConfig').onclick = () => {
+    if (!state) return;
+    const name = state.channelNames[state.channel - 1] || `canal-${state.channel}`;
+    const file = { sorteador: state.version, canal: name, config: state.config };
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
+    link.download = `sorteador-${name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    toast('Configuração exportada');
+  };
+  $('#importConfig').onclick = () => $('#importFile').click();
+  $('#importFile').addEventListener('change', async () => {
+    const file = $('#importFile').files[0];
+    $('#importFile').value = '';
+    if (!file) return;
+    let config;
+    try {
+      const data = JSON.parse(await file.text());
+      config = data && typeof data.config === 'object' ? data.config : data;
+      if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error();
+    } catch {
+      return toast('Esse arquivo não é uma configuração do Sorteador');
+    }
+    if (!confirm(`Substituir a lista e as configurações de ${channelLabel(channel)} pelas do arquivo?`)) return;
+    // Fonts are files of the computer that exported; the ones missing here fall back to the default.
+    const available = await fetch('/api/fonts').then(r => r.json()).then(d => new Set(d.fonts.map(f => f.path))).catch(() => new Set());
+    let missingFont = false;
+    for (const key of ['fontPath', 'titleFontPath'])
+      if (config[key] && !available.has(config[key])) { config[key] = ''; missingFont = true; }
+    applyValues(config, missingFont ? 'Configuração importada (fonte não encontrada aqui: usando a padrão)' : 'Configuração importada');
+  });
+
+  $('#copyVisual').onclick = async () => {
+    const target = Number($('#copyTarget').value);
+    if (!target || !state) return;
+    const values = {};
+    for (const key of [...STYLE_KEYS.animacao, ...STYLE_KEYS.visual, ...STYLE_KEYS.textos]) values[key] = currentValue(key);
+    try {
+      const res = await fetch(`/api/config?canal=${target}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+      toast(`Visual copiado para ${channelLabel(target)}`);
+    } catch (err) {
+      showError(err);
+    }
+  };
+
+  let defaults = null;
+  fetch('/api/defaults').then(r => r.json()).then(d => { defaults = d; }).catch(() => {});
+  $$('[data-reset]').forEach(b => b.onclick = () => {
+    if (!defaults) return;
+    const values = {};
+    for (const k of STYLE_KEYS[b.dataset.reset]) values[k] = defaults[k];
+    applyValues(values, 'Padrão restaurado');
+  });
+
+  // ---------- list warnings ----------
+  // Problems that are easy to miss in a pasted list and awkward to discover on air.
+  const normalize = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const quoteList = (names, max = 4) => names.slice(0, max).map(n => `"${n}"`).join(', ') + (names.length > max ? ` e mais ${names.length - max}` : '');
+  let warningsTimer = null;
+  function scheduleListWarnings() {
+    clearTimeout(warningsTimer);
+    warningsTimer = setTimeout(renderListWarnings, 300);
+  }
+  function renderListWarnings() {
+    const box = $('#listWarnings');
+    const names = ($('#listText').value || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const warnings = [];
+    const counts = new Map(), groups = new Map();
+    for (const n of names) {
+      counts.set(n, (counts.get(n) || 0) + 1);
+      const key = normalize(n);
+      if (!groups.has(key)) groups.set(key, new Set());
+      groups.get(key).add(n);
+    }
+    const repeated = [...counts].filter(([, c]) => c > 1).map(([n, c]) => `${n} (${c}×)`);
+    if (repeated.length)
+      warnings.push(`Aparecem mais de uma vez e podem sair mais de uma vez: ${quoteList(repeated)}.`);
+    const similar = [...groups.values()].filter(g => g.size > 1).map(g => [...g].map(n => `"${n}"`).join(' e '));
+    if (similar.length)
+      warnings.push(`Parecem a mesma pessoa escrita de jeitos diferentes: ${similar.slice(0, 3).join('; ')}${similar.length > 3 ? ` e mais ${similar.length - 3}` : ''}.`);
+    // Measured like the output (16:9) does, with the current font and size.
+    const cfg = state ? { ...state.config, ...pending } : null;
+    if (cfg) {
+      const ctx = document.createElement('canvas').getContext('2d');
+      const sizePx = cfg.textSize * 720, maxWidth = 1280 * 0.92;
+      const shown = (n) => cfg.uppercase ? n.toLocaleUpperCase('pt-BR') : n;
+      // Same fitting as the output, two lines included when they are on.
+      const tiny = [...counts.keys()].map(itemName).filter(n => fitText(ctx, shown(n), sizePx, maxWidth, cfg.wrapLongNames).size < sizePx * 0.6);
+      if (tiny.length)
+        warnings.push(`Ficam bem menores na tela por serem longos: ${quoteList(tiny, 3)}. Considere abreviar.`);
+    }
+    box.innerHTML = '';
+    for (const w of warnings) {
+      const p = document.createElement('p');
+      p.textContent = '⚠ ' + w;
+      box.appendChild(p);
+    }
+  }
+
+  // ---------- space bar ----------
+  // In "Ensaio" a tap runs a test. On air the bar has to be held for a moment, so a stray key never starts a draw.
+  const HOLD_TIME = 600;
+  let holdTimer = null;
+  const typing = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  function cancelHold() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    $('#start').classList.remove('holding');
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || typing()) return;
+    e.preventDefault();
+    if (e.repeat || holdTimer || $('#start').disabled) return;
+    if (mode === 'test') return $('#start').click();
+    $('#start').classList.add('holding');
+    holdTimer = setTimeout(() => { cancelHold(); if (!$('#start').disabled) $('#start').click(); }, HOLD_TIME);
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code !== 'Space' || !holdTimer) return;
+    cancelHold();
+    toast('Ao vivo, segure a barra de espaço para sortear');
+  });
+  window.addEventListener('blur', cancelHold);
+
+  renderMode();
+  renderPanes();
 
   poll();
 })();

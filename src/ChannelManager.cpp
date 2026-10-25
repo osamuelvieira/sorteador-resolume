@@ -10,7 +10,9 @@ namespace sorteador
 {
 namespace
 {
-constexpr int kStateVersion = 3;
+constexpr int kStateVersion = 4;
+// An instance that has not drawn for this long is no longer playing (clip stopped, removed or Resolume paused).
+constexpr double kOutputTimeout = 1.0;
 
 std::filesystem::path StateFile()
 {
@@ -91,6 +93,46 @@ std::string ChannelManager::WebAddress() const
 	return server ? server->Address() : std::string();
 }
 
+void ChannelManager::ReportFrame( const void* instance, int channel, bool preview )
+{
+	std::lock_guard< std::mutex > lock( mutex );
+	frames[ instance ] = { ClampChannel( channel ), preview, Now() };
+}
+
+OutputCount ChannelManager::Outputs( int channel )
+{
+	std::lock_guard< std::mutex > lock( mutex );
+	const double now = Now();
+	OutputCount count;
+	for( auto it = frames.begin(); it != frames.end(); )
+	{
+		// Deleted instances never report again, so old entries are dropped here.
+		if( now - it->second.time > kOutputTimeout )
+		{
+			it = frames.erase( it );
+			continue;
+		}
+		if( it->second.channel == ClampChannel( channel ) )
+			++( it->second.preview ? count.preview : count.live );
+		++it;
+	}
+	return count;
+}
+
+std::vector< std::string > ChannelManager::Names()
+{
+	std::lock_guard< std::mutex > lock( mutex );
+	std::vector< std::string > names;
+	for( const Channel& c : channels )
+		names.push_back( c.name );
+	return names;
+}
+
+std::string ChannelManager::Label( const std::string& name, int channel )
+{
+	return name.empty() ? "Canal " + std::to_string( channel + 1 ) : name;
+}
+
 uint64_t ChannelManager::RevisionSum()
 {
 	std::lock_guard< std::mutex > lock( mutex );
@@ -147,6 +189,9 @@ void ChannelManager::Load()
 			// The address on screen became off by default.
 			if( version < 3 )
 				config.showAddress = false;
+			// Title and waiting text got their own style in 1.3.
+			if( version < 4 )
+				MigrateTo13( config );
 
 			// Before 1.2 only names were saved, newer versions save { "name", "time" }.
 			std::vector< HistoryEntry > history;
@@ -155,9 +200,11 @@ void ChannelManager::Load()
 				if( entry.is_string() )
 					history.push_back( { entry.get< std::string >() } );
 				else if( entry.is_object() )
-					history.push_back( { entry.value( "name", std::string() ), entry.value( "time", (int64_t)0 ) } );
+					history.push_back( { entry.value( "name", std::string() ), entry.value( "time", (int64_t)0 ), entry.value( "absent", false ) } );
 			}
 			channels[ i ].SetHistory( std::move( history ) );
+			channels[ i ].locked = saved[ i ].value( "locked", false );
+			channels[ i ].name   = saved[ i ].value( "name", std::string() );
 		}
 	}
 	catch( const std::exception& )
@@ -172,7 +219,7 @@ void ChannelManager::Save()
 	{
 		std::lock_guard< std::mutex > lock( mutex );
 		for( const Channel& c : channels )
-			state[ "channels" ].push_back( { { "config", ToJson( c.config ) }, { "history", HistoryToJson( c.GetHistory() ) } } );
+			state[ "channels" ].push_back( { { "config", ToJson( c.config ) }, { "history", HistoryToJson( c.GetHistory() ) }, { "locked", c.locked }, { "name", c.name } } );
 	}
 	WriteFileAtomic( StateFile(), state.dump( 2, ' ', false, json::error_handler_t::replace ) );
 }

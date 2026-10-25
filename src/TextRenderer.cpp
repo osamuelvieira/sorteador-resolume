@@ -30,6 +30,7 @@ constexpr float kKindSolid = 1.0f;
 constexpr float kKindDot   = 2.0f;
 constexpr float kKindGlow  = 3.0f;
 constexpr float kKindRing  = 4.0f;
+constexpr float kKindSector = 5.0f;// plus half the opening divided by pi, so 5..6
 
 const char* kVertexShader = R"(#version 410 core
 layout( location = 0 ) in vec2 aPosition;
@@ -66,7 +67,15 @@ void main()
 	{
 		float a = vColor.a;
 		float r = length( vUV );
-		if( vKind > 3.5 )
+		if( vKind > 4.995 )
+		{
+			// Sector: inside the disc and within the opening around the +x axis, antialiased on both edges.
+			float halfOpening = ( vKind - 5.0 ) * 3.14159265;
+			float aa          = max( fwidth( r ), 0.001 );
+			float outside     = max( r - 1.0, ( abs( atan( vUV.y, vUV.x ) ) - halfOpening ) * r );
+			a *= 1.0 - smoothstep( -aa, aa, outside );
+		}
+		else if( vKind > 3.5 )
 		{
 			float halfThickness = ( vKind - 4.0 ) * 0.5;
 			float aa            = max( fwidth( r ), 0.001 );
@@ -464,6 +473,8 @@ void TextRenderer::AddShape( Shape shape, float centerX, float centerY, float ha
 		kind = kKindDot;
 	else if( shape == Shape::Ring )
 		kind = kKindRing + std::min( 0.99f, std::max( 0.01f, thickness ) );
+	else if( shape == Shape::Sector )
+		kind = kKindSector + std::min( 1.0f, std::max( 0.001f, thickness / 3.14159265f ) );
 
 	const float c = std::cos( angle ), s = std::sin( angle );
 	const float local[ 4 ][ 2 ] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
@@ -478,9 +489,9 @@ void TextRenderer::AddShape( Shape shape, float centerX, float centerY, float ha
 		PushVertex( x[ i ], y[ i ], local[ i ][ 0 ], local[ i ][ 1 ], rgba, kind );
 }
 
-void TextRenderer::AddText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] )
+void TextRenderer::AddText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float angle )
 {
-	AddGlyphs( utf8, centerX, centerY, sizePx, rgba, kKindText );
+	AddGlyphs( utf8, centerX, centerY, sizePx, rgba, kKindText, angle );
 }
 
 void TextRenderer::AddGlowText( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ] )
@@ -488,8 +499,9 @@ void TextRenderer::AddGlowText( const std::string& utf8, float centerX, float ce
 	AddGlyphs( utf8, centerX, centerY, sizePx, rgba, kKindGlow );
 }
 
-void TextRenderer::AddGlyphs( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float kind )
+void TextRenderer::AddGlyphs( const std::string& utf8, float centerX, float centerY, float sizePx, const float rgba[ 4 ], float kind, float angle )
 {
+	const float cosA = std::cos( angle ), sinA = std::sin( angle );
 	if( !font || rgba[ 3 ] <= 0.0f || sizePx <= 0.0f )
 		return;
 	const float s       = sizePx / kBakeSize;
@@ -505,7 +517,20 @@ void TextRenderer::AddGlyphs( const std::string& utf8, float centerX, float cent
 		{
 			float x0 = penX + glyph->x0 * s;
 			float y0 = baseline + glyph->y0 * s;
-			PushQuad( x0, y0, x0 + glyph->width * s, y0 + glyph->height * s, glyph->u0, glyph->v0, glyph->u1, glyph->v1, rgba, kind );
+			const float x1 = x0 + glyph->width * s, y1 = y0 + glyph->height * s;
+			if( angle == 0.0f )
+				PushQuad( x0, y0, x1, y1, glyph->u0, glyph->v0, glyph->u1, glyph->v1, rgba, kind );
+			else
+			{
+				// Each corner turns around the center of the line.
+				const float corners[ 4 ][ 4 ] = { { x0, y0, glyph->u0, glyph->v0 }, { x1, y0, glyph->u1, glyph->v0 },
+					                              { x1, y1, glyph->u1, glyph->v1 }, { x0, y1, glyph->u0, glyph->v1 } };
+				for( int i : { 0, 1, 2, 0, 2, 3 } )
+				{
+					const float dx = corners[ i ][ 0 ] - centerX, dy = corners[ i ][ 1 ] - centerY;
+					PushVertex( centerX + dx * cosA - dy * sinA, centerY + dx * sinA + dy * cosA, corners[ i ][ 2 ], corners[ i ][ 3 ], rgba, kind );
+				}
+			}
 		}
 		penX += glyph->advance * s;
 		if( i + 1 < text.size() )

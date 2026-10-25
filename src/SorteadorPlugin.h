@@ -4,6 +4,7 @@
 #include "TextRenderer.h"
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace sorteador
@@ -31,12 +32,16 @@ private:
 	void RaiseValueEvents();
 
 	TextRenderer text;
+	TextRenderer titleText;
 	int channel                 = 0;
 	bool preview                = false;// shows and runs the channel's test draw instead of the real one
 	uint64_t seenConfigRevision = 0;
-	std::array< float, 64 > previousEventValue{};
+	std::array< float, 96 > previousEventValue{};// indexed by parameter
 	std::vector< char > textBuffer;
 	std::vector< char > displayBuffer;
+	std::string qrText;
+	std::vector< std::string > qrModules;
+	std::vector< std::string > channelNames;// as last shown in the channel menu
 };
 
 }//namespace sorteador

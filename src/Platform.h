@@ -21,6 +21,8 @@ struct FontFile
 	std::string path;
 };
 std::vector< FontFile > ListSystemFonts();
+// True if the path is a font file directly inside one of the folders ListSystemFonts() looks in.
+bool IsSystemFont( const std::string& utf8 );
 
 bool ReadFile( const std::filesystem::path& path, std::vector< unsigned char >& out );
 // Writes to a temporary file first, so a crash never leaves a half written file behind.

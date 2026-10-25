@@ -17,7 +17,10 @@ constexpr long long kMaxEnumerated    = 200000;// number ranges up to this size 
 constexpr double kHighlightTime       = 0.3;
 constexpr double kPulseTime           = 0.45;
 constexpr double kNeighborFadeOutTime = 0.5;
+constexpr double kResultFadeOutTime   = 0.6;// before an automatic return to the waiting screen
+constexpr double kIdleFadeInTime      = 0.4;
 constexpr double kPi                  = 3.14159265358979323846;
+constexpr size_t kWheelSlices         = 16;
 
 std::string Trim( const std::string& s )
 {
@@ -34,6 +37,18 @@ double Clamp01( double v )
 	return std::min( 1.0, std::max( 0.0, v ) );
 }
 }//namespace
+
+std::string ItemName( const std::string& item )
+{
+	size_t bar = item.find( '|' );
+	return bar == std::string::npos ? item : Trim( item.substr( 0, bar ) );
+}
+
+std::string ItemDetail( const std::string& item )
+{
+	size_t bar = item.find( '|' );
+	return bar == std::string::npos ? std::string() : Trim( item.substr( bar + 1 ) );
+}
 
 Channel::Channel() :
 	rng( std::random_device{}() )
@@ -113,19 +128,21 @@ size_t Channel::AvailableCount() const
 	return (size_t)std::max( 0LL, count - used );
 }
 
-bool Channel::PickAvailableNumber( long long& out )
+bool Channel::PickAvailableNumber( long long& out, const std::vector< std::string >& alsoTaken )
 {
 	const long long count = (long long)config.numMax - config.numMin + 1;
 	std::uniform_int_distribution< long long > any( config.numMin, config.numMax );
-	if( !config.noRepeat )
+	if( !config.noRepeat && alsoTaken.empty() )
 	{
 		out = any( rng );
 		return true;
 	}
 
-	std::unordered_set< std::string > drawn;
-	for( const HistoryEntry& h : history )
-		drawn.insert( h.text );
+	// The numbers drawn before (when they may not repeat) and the ones already picked for this same draw.
+	std::unordered_set< std::string > drawn( alsoTaken.begin(), alsoTaken.end() );
+	if( config.noRepeat )
+		for( const HistoryEntry& h : history )
+			drawn.insert( h.text );
 	if( count <= kMaxEnumerated )
 	{
 		std::vector< long long > available;
@@ -148,14 +165,143 @@ bool Channel::PickAvailableNumber( long long& out )
 	return false;
 }
 
+namespace
+{
+// UTF-8 text split into characters, for the columns of the slot machine.
+std::vector< std::string > SplitCharacters( const std::string& s )
+{
+	std::vector< std::string > out;
+	for( size_t i = 0; i < s.size(); )
+	{
+		const unsigned char c = (unsigned char)s[ i ];
+		size_t length         = c < 0x80 ? 1 : ( c >> 5 ) == 0x6 ? 2 : ( c >> 4 ) == 0xE ? 3 : ( c >> 3 ) == 0x1E ? 4 : 1;
+		length                = std::min( length, s.size() - i );
+		out.push_back( s.substr( i, length ) );
+		i += length;
+	}
+	return out;
+}
+}//namespace
+
+Segment Channel::BuildSegment( const std::string& winner, const std::vector< std::string >& pool, Animation animation, double start, double spin )
+{
+	Segment seg;
+	seg.winner                   = winner;
+	seg.start                    = start;
+	seg.spin                     = spin;
+	const std::string winnerName = ItemName( winner );
+	const bool numbers           = config.mode == DrawMode::Numbers;
+
+	auto randomEntry = [ & ]() -> std::string {
+		if( !pool.empty() )
+			return ItemName( pool[ std::uniform_int_distribution< size_t >( 0, pool.size() - 1 )( rng ) ] );
+		return FormatNumber( std::uniform_int_distribution< long long >( config.numMin, config.numMax )( rng ) );
+	};
+	const bool canVary = numbers ? config.numMax > config.numMin : pool.size() > 1;
+	// The easing 1 - (1 - x)^k starts with a slope of k, so this distance gives the configured initial speed.
+	auto distanceFor = [ & ]( double seconds ) {
+		return std::min( kMaxDistance, std::max( kMinDistance, std::llround( config.speed * seconds / config.decel ) ) );
+	};
+	auto makeReel = [ & ]( const std::string& target, long long distance, double stop, bool vary, auto&& next ) {
+		Reel reel;
+		reel.distance = distance;
+		reel.stop     = stop;
+		reel.entries.assign( (size_t)( distance + 2 * kReelPad + 1 ), std::string() );
+		const size_t targetSlot = (size_t)( kReelPad + distance );
+		for( size_t i = 0; i < reel.entries.size(); ++i )
+		{
+			if( i == targetSlot )
+			{
+				reel.entries[ i ] = target;
+				continue;
+			}
+			std::string entry = next();
+			// Avoid showing the same text twice in a row, and keep the target from appearing right next to itself.
+			for( int retry = 0; vary && retry < 8; ++retry )
+			{
+				bool repeatsPrevious = i > 0 && entry == reel.entries[ i - 1 ];
+				bool touchesTarget   = ( i + 1 == targetSlot || i == targetSlot + 1 ) && entry == target;
+				if( !repeatsPrevious && !touchesTarget )
+					break;
+				entry = next();
+			}
+			reel.entries[ i ] = entry;
+		}
+		return reel;
+	};
+
+	if( animation == Animation::Wheel )
+	{
+		// Up to kWheelSlices different slices, the winner among them, in random order.
+		std::vector< std::string > slices = { winnerName };
+		std::unordered_set< std::string > used = { winnerName };
+		for( int attempt = 0; canVary && attempt < 400 && slices.size() < kWheelSlices; ++attempt )
+		{
+			std::string entry = randomEntry();
+			if( used.insert( entry ).second )
+				slices.push_back( entry );
+		}
+		std::shuffle( slices.begin(), slices.end(), rng );
+		const long long count = (long long)slices.size();
+		const long long index = std::find( slices.begin(), slices.end(), winnerName ) - slices.begin();
+		Reel wheel;
+		wheel.entries  = std::move( slices );
+		wheel.distance = index + std::max( 2LL, distanceFor( spin ) / count ) * count;
+		wheel.stop     = spin;
+		seg.reels.push_back( std::move( wheel ) );
+	}
+	else if( animation == Animation::Slot )
+	{
+		// Digits roll through 0 to 9, names through the letters of the list.
+		std::vector< std::string > alphabet;
+		if( numbers )
+			for( char d = '0'; d <= '9'; ++d )
+				alphabet.push_back( std::string( 1, d ) );
+		else
+		{
+			std::set< std::string > letters;
+			for( const std::string& entry : pool )
+				for( const std::string& c : SplitCharacters( ItemName( entry ) ) )
+					if( c != " " )
+						letters.insert( c );
+			alphabet.assign( letters.begin(), letters.end() );
+			if( alphabet.size() < 2 )
+				for( char c = 'A'; c <= 'Z'; ++c )
+					alphabet.push_back( std::string( 1, c ) );
+		}
+		auto randomCharacter = [ & ]() { return alphabet[ std::uniform_int_distribution< size_t >( 0, alphabet.size() - 1 )( rng ) ]; };
+
+		const std::vector< std::string > characters = SplitCharacters( winnerName );
+		// Spaces, and signs in numbers, stand still; the others stop one after another from the left.
+		auto still = [ & ]( const std::string& c ) {
+			return c == " " || ( numbers && std::find( alphabet.begin(), alphabet.end(), c ) == alphabet.end() );
+		};
+		const size_t moving = (size_t)std::count_if( characters.begin(), characters.end(), [ & ]( const std::string& c ) { return !still( c ); } );
+		size_t order        = 0;
+		for( const std::string& c : characters )
+		{
+			if( still( c ) )
+			{
+				seg.reels.push_back( makeReel( c, 0, 0.0, false, [ & ]() { return c; } ) );
+				continue;
+			}
+			const double stop = spin * ( 0.45 + 0.55 * (double)( ++order ) / (double)moving );
+			seg.reels.push_back( makeReel( c, distanceFor( stop ), stop, true, randomCharacter ) );
+		}
+	}
+	else
+		seg.reels.push_back( makeReel( winnerName, distanceFor( spin ), spin, canVary, randomEntry ) );
+	return seg;
+}
+
 bool Channel::Start( double now, bool test )
 {
 	Run& r = test ? testRun : run;
 	if( r.phase == Phase::Spinning )
 		return false;
 
-	std::vector< std::string > pool;
-	std::string winner;
+	const size_t wanted = (size_t)config.drawCount;
+	std::vector< std::string > winners, pool;
 	if( config.mode == DrawMode::List )
 	{
 		std::vector< std::string > items = Items();
@@ -175,14 +321,26 @@ bool Channel::Start( double now, bool test )
 			Touch();
 			return false;
 		}
-		winner = available[ std::uniform_int_distribution< size_t >( 0, available.size() - 1 )( rng ) ];
+		// Several winners of one draw are always different lines of the list.
+		std::vector< size_t > order( available.size() );
+		for( size_t i = 0; i < order.size(); ++i )
+			order[ i ] = i;
+		std::shuffle( order.begin(), order.end(), rng );
+		for( size_t i = 0; i < std::min( wanted, order.size() ); ++i )
+			winners.push_back( available[ order[ i ] ] );
 		// The reel shows what can still come out, unless that is too little to make an animation.
 		pool = available.size() >= 2 ? available : items;
 	}
 	else
 	{
-		long long value = 0;
-		if( !PickAvailableNumber( value ) )
+		for( size_t i = 0; i < wanted; ++i )
+		{
+			long long value = 0;
+			if( !PickAvailableNumber( value, winners ) )
+				break;
+			winners.push_back( FormatNumber( value ) );
+		}
+		if( winners.empty() )
 		{
 			if( !test )
 			{
@@ -190,85 +348,142 @@ bool Channel::Start( double now, bool test )
 				Touch();
 				return false;
 			}
-			value = std::uniform_int_distribution< long long >( config.numMin, config.numMax )( rng );
+			winners.push_back( FormatNumber( std::uniform_int_distribution< long long >( config.numMin, config.numMax )( rng ) ) );
 		}
-		winner = FormatNumber( value );
 	}
+	message.clear();
+	if( winners.size() < wanted && !test )
+		message = "Só restavam " + std::to_string( winners.size() ) + " para sortear.";
 
-	auto randomEntry = [ & ]() -> std::string {
-		if( !pool.empty() )
-			return pool[ std::uniform_int_distribution< size_t >( 0, pool.size() - 1 )( rng ) ];
-		return FormatNumber( std::uniform_int_distribution< long long >( config.numMin, config.numMax )( rng ) );
-	};
-	const bool canVary = config.mode == DrawMode::Numbers ? config.numMax > config.numMin : pool.size() > 1;
-
-	// The easing 1 - (1 - x)^k starts with a slope of k, so this distance gives the configured initial speed.
-	long long distance = std::llround( config.speed * config.duration / config.decel );
-	distance           = std::min( kMaxDistance, std::max( kMinDistance, distance ) );
-
-	std::vector< std::string > reel( (size_t)( distance + 2 * kReelPad + 1 ), std::string() );
-	const size_t winnerSlot = (size_t)( kReelPad + distance );
-	for( size_t i = 0; i < reel.size(); ++i )
-	{
-		if( i == winnerSlot )
-		{
-			reel[ i ] = winner;
-			continue;
-		}
-		std::string entry = randomEntry();
-		// Avoid showing the same text twice in a row, and keep the winner from appearing right next to itself.
-		for( int retry = 0; canVary && retry < 8; ++retry )
-		{
-			bool repeatsPrevious = i > 0 && entry == reel[ i - 1 ];
-			bool touchesWinner   = ( i + 1 == winnerSlot || i == winnerSlot + 1 ) && entry == winner;
-			if( !repeatsPrevious && !touchesWinner )
-				break;
-			entry = randomEntry();
-		}
-		reel[ i ] = entry;
-	}
-
-	r.serial    = ++serial;
-	r.winner    = winner;
-	r.reel      = std::move( reel );
-	r.distance  = distance;
-	r.startTime = now;
-	r.spinTime  = config.duration;
+	r.segments.clear();
+	r.animation = config.animation;
+	r.reveal    = config.reveal == 1 ? Reveal::Grid : Reveal::OneByOne;
+	r.revealGap = config.revealGap;
 	r.decel     = config.decel;
-	r.seed      = (uint32_t)rng();
-	r.phase     = Phase::Spinning;
+	const double first = now + config.countdown;
+	const size_t count = winners.size();
+	for( size_t i = 0; i < count; ++i )
+	{
+		if( count > 1 && r.reveal == Reveal::Grid )
+		{
+			// All spin together in place, each in its cell, and they stop one after another.
+			const double spin = config.duration * ( 0.55 + 0.45 * (double)( i + 1 ) / (double)count );
+			r.segments.push_back( BuildSegment( winners[ i ], pool, Animation::Flip, first, spin ) );
+		}
+		else
+			r.segments.push_back( BuildSegment( winners[ i ], pool, r.animation, first + i * ( config.duration + r.revealGap ), config.duration ) );
+	}
+	r.serial   = ++serial;
+	r.seed     = (uint32_t)rng();
+	r.recorded = 0;
+	r.phase    = Phase::Spinning;
+	Touch();
+	return true;
+}
+
+bool Channel::ShowBoard( double now, bool test )
+{
+	Run& r = test ? testRun : run;
+	if( r.phase == Phase::Spinning )
+		return false;
+	r.phase     = Phase::Board;
+	r.boardTime = now;
 	message.clear();
 	Touch();
 	return true;
 }
 
+double Run::EndTime() const
+{
+	double end = 0.0;
+	for( const Segment& seg : segments )
+		end = std::max( end, seg.Landing() );
+	return end;
+}
+
+const std::string& Channel::GetWinner( bool test ) const
+{
+	static const std::string none;
+	const Run& r = GetRun( test );
+	return r.segments.size() == 1 ? r.segments.front().winner : none;
+}
+
 void Channel::Tick( double now )
 {
-	if( run.phase == Phase::Spinning && now >= run.startTime + run.spinTime )
+	for( bool test : { false, true } )
 	{
-		run.phase = Phase::Result;
-		history.push_back( { run.winner, (int64_t)std::time( nullptr ) } );
-		Touch();
-	}
-	if( testRun.phase == Phase::Spinning && now >= testRun.startTime + testRun.spinTime )
-	{
-		testRun.phase = Phase::Result;
-		Touch();
+		Run& r = test ? testRun : run;
+		if( r.phase == Phase::Spinning )
+		{
+			// Every winner goes to the history the moment it lands.
+			while( r.recorded < r.segments.size() && now >= r.segments[ r.recorded ].Landing() )
+			{
+				if( !test )
+				{
+					history.push_back( { r.segments[ r.recorded ].winner, (int64_t)std::time( nullptr ) } );
+					resetHistory.clear();
+				}
+				++r.recorded;
+				Touch();
+			}
+			if( now >= r.EndTime() )
+			{
+				r.phase = Phase::Result;
+				Touch();
+			}
+		}
+		const double end = r.FinalTime() + config.autoClear;
+		if( r.phase == Phase::Result && config.autoClear > 0.0f && now >= end )
+		{
+			r.phase     = Phase::Idle;
+			r.clearTime = end;
+			Touch();
+		}
 	}
 }
 
-void Channel::Clear( bool test )
+void Channel::Clear( double now, bool test )
 {
-	( test ? testRun : run ).phase = Phase::Idle;
+	Run& r = test ? testRun : run;
+	if( r.phase != Phase::Idle )
+		r.clearTime = now;
+	r.phase = Phase::Idle;
 	message.clear();
 	Touch();
 }
 
 void Channel::ResetHistory()
 {
+	// Kept for UndoReset, unless there is nothing to keep (a second reset must not lose the first one).
+	if( !history.empty() )
+		resetHistory = std::move( history );
 	history.clear();
 	message.clear();
 	Touch();
+}
+
+bool Channel::UndoReset()
+{
+	if( !CanUndoReset() )
+		return false;
+	history = std::move( resetHistory );
+	resetHistory.clear();
+	Touch();
+	return true;
+}
+
+bool Channel::Redraw( double now )
+{
+	if( run.phase != Phase::Result || run.segments.size() != 1 || history.empty() || history.back().text != run.segments[ 0 ].winner ||
+	    history.back().absent )
+	{
+		message = "Só dá para sortear de novo com um único ganhador na tela.";
+		Touch();
+		return false;
+	}
+	history.back().absent = true;
+	Touch();
+	return Start( now );
 }
 
 void Channel::RemoveHistory( size_t index )
@@ -292,7 +507,10 @@ double Channel::Progress( double now, bool test ) const
 	switch( r.phase )
 	{
 	case Phase::Spinning:
-		return Clamp01( ( now - r.startTime ) / r.spinTime );
+	{
+		const double length = r.EndTime() - r.StartTime();
+		return length > 0.0 ? Clamp01( ( now - r.StartTime() ) / length ) : 0.0;
+	}
 	case Phase::Result:
 		return 1.0;
 	default:
@@ -302,16 +520,17 @@ double Channel::Progress( double now, bool test ) const
 
 namespace
 {
-double ReelPosition( const Run& r, double now )
+double ReelPosition( const Reel& reel, double sinceStart, double decel )
 {
-	double x = Clamp01( ( now - r.startTime ) / r.spinTime );
-	return (double)r.distance * ( 1.0 - std::pow( 1.0 - x, r.decel ) );
+	if( reel.stop <= 0.0 )
+		return (double)reel.distance;
+	return (double)reel.distance * ( 1.0 - std::pow( 1.0 - Clamp01( sinceStart / reel.stop ), decel ) );
 }
 
-const std::string& ReelAt( const Run& r, long long index )
+const std::string& ReelAt( const Reel& reel, long long index )
 {
-	long long i = std::min( (long long)r.reel.size() - 1, std::max( 0LL, index + kReelPad ) );
-	return r.reel[ (size_t)i ];
+	long long i = std::min( (long long)reel.entries.size() - 1, std::max( 0LL, index + kReelPad ) );
+	return reel.entries[ (size_t)i ];
 }
 }//namespace
 
@@ -319,7 +538,7 @@ nlohmann::json HistoryToJson( const std::vector< HistoryEntry >& history )
 {
 	nlohmann::json out = nlohmann::json::array();
 	for( const HistoryEntry& h : history )
-		out.push_back( { { "name", h.text }, { "time", h.time } } );
+		out.push_back( { { "name", h.text }, { "time", h.time }, { "absent", h.absent } } );
 	return out;
 }
 
@@ -327,58 +546,167 @@ FrameView Channel::BuildFrame( double now, bool test ) const
 {
 	const Run& r = GetRun( test );
 	FrameView frame;
-	frame.config = config;
-	frame.phase  = r.phase;
-	frame.seed   = r.seed;
-
-	const int k          = config.neighbors;
-	const bool showsReel = config.animation != Animation::Flip;
+	frame.config    = config;
+	frame.phase     = r.phase;
+	frame.seed      = r.seed;
+	frame.animation = r.phase == Phase::Spinning || r.phase == Phase::Result ? r.animation : config.animation;
+	const int k     = config.neighbors;
 
 	if( r.phase == Phase::Idle )
 	{
+		frame.fade = (float)Clamp01( ( now - r.clearTime ) / kIdleFadeInTime );
 		if( !config.idleText.empty() )
-			frame.items.push_back( { config.idleText } );
+			frame.items.push_back( { config.idleText, 0.0f, frame.fade } );
+		return frame;
 	}
-	else if( r.phase == Phase::Spinning )
+	if( r.phase == Phase::Board )
 	{
-		double position = ReelPosition( r, now );
-		if( !showsReel )
+		frame.board = true;
+		frame.fade  = (float)Clamp01( ( now - r.boardTime ) / kIdleFadeInTime );
+		for( const HistoryEntry& h : history )
+			if( !h.absent )
+				frame.cells.push_back( { ItemName( h.text ), ItemName( h.text ), 0.0f, 1e3f } );
+		return frame;
+	}
+	if( r.segments.empty() )
+		return frame;
+
+	if( r.phase == Phase::Result && config.autoClear > 0.0f )
+		frame.fade = 1.0f - (float)Clamp01( ( now - r.FinalTime() - ( config.autoClear - kResultFadeOutTime ) ) / kResultFadeOutTime );
+
+	// "3, 2, 1": each number pops in big and shrinks, fading out at the end of its second.
+	const double first = r.StartTime();
+	if( now < first )
+	{
+		const double left   = first - now;
+		const double number = std::ceil( left - 1e-9 );
+		const double part   = left - ( number - 1.0 );// 1 down to 0 within each second
+		VisibleItem item;
+		item.text      = std::to_string( (int)number );
+		item.winnerMix = 1.0f;
+		item.scale     = 0.85f + 0.45f * (float)std::pow( part, 4.0 );
+		item.alpha     = (float)Clamp01( part / 0.2 );
+		frame.countdown = true;
+		frame.items.push_back( item );
+		return frame;
+	}
+
+	if( r.IsGrid() )
+	{
+		for( const Segment& seg : r.segments )
 		{
-			frame.items.push_back( { ReelAt( r, std::llround( position ) ) } );
+			CellView cell;
+			cell.layoutText = ItemName( seg.winner );
+			if( now >= seg.Landing() )
+			{
+				cell.text        = ItemName( seg.winner );
+				cell.sinceLanded = (float)( now - seg.Landing() );
+				cell.winnerMix   = (float)Clamp01( cell.sinceLanded / kHighlightTime );
+			}
+			else
+				cell.text = ReelAt( seg.reels.front(), std::llround( ReelPosition( seg.reels.front(), now - seg.start, r.decel ) ) );
+			frame.cells.push_back( cell );
 		}
-		else
+		if( now >= r.EndTime() )
 		{
-			long long base = (long long)std::floor( position );
+			frame.landed      = true;
+			frame.sinceResult = (float)( now - r.EndTime() );
+		}
+		return frame;
+	}
+
+	// One winner at a time: the one on screen is the last that started.
+	size_t current = 0;
+	while( current + 1 < r.segments.size() && now >= r.segments[ current + 1 ].start )
+		++current;
+	if( r.segments.size() > 1 && now >= r.FinalTime() )
+	{
+		// After the last one had its moment alone, everybody together.
+		for( const Segment& seg : r.segments )
+			frame.cells.push_back( { ItemName( seg.winner ), ItemName( seg.winner ), 1.0f, (float)( now - seg.Landing() ) } );
+		frame.fade = std::min( frame.fade, (float)Clamp01( ( now - r.FinalTime() ) / kIdleFadeInTime ) );
+		return frame;
+	}
+	for( size_t i = 0; i < current; ++i )
+		frame.tray.push_back( ItemName( r.segments[ i ].winner ) );
+
+	const Segment& seg        = r.segments[ current ];
+	const Reel& reel          = seg.reels.front();
+	const double since        = now - seg.start;
+	const double sinceLanding = now - seg.Landing();
+	if( r.animation == Animation::Wheel )
+	{
+		const double slice      = 2.0 * kPi / (double)reel.entries.size();
+		frame.wheel.entries     = reel.entries;
+		frame.wheel.winnerIndex = (int)( reel.distance % (long long)reel.entries.size() );
+		frame.wheel.rotation    = (float)( ReelPosition( reel, since, r.decel ) * slice );
+		frame.wheel.highlight   = sinceLanding < 0.0 ? 0.0f : (float)Clamp01( sinceLanding / kHighlightTime );
+		// Once it stops, the wheel steps back so the name in front of it reads well.
+		frame.wheel.alpha = ( sinceLanding < 0.0 ? 1.0f : 1.0f - 0.7f * (float)Clamp01( sinceLanding / kNeighborFadeOutTime ) ) * frame.fade;
+	}
+
+	if( sinceLanding < 0.0 )
+	{
+		if( r.animation == Animation::Slot )
+		{
+			for( const Reel& column : seg.reels )
+			{
+				ColumnView view;
+				view.finalText = column.entries[ (size_t)( kReelPad + column.distance ) ];
+				if( since >= column.stop )
+					view.items.push_back( { view.finalText, 0.0f, 1.0f, 1.0f, (float)Clamp01( ( since - column.stop ) / kHighlightTime ) } );
+				else
+				{
+					const double position = ReelPosition( column, since, r.decel );
+					const long long base  = (long long)std::floor( position );
+					for( long long i = base - 1; i <= base + 2; ++i )
+					{
+						const float offset = (float)( i - position );
+						const float alpha  = 1.0f - std::fabs( offset ) / 1.15f;
+						if( alpha > 0.0f )
+							view.items.push_back( { ReelAt( column, i ), offset, alpha } );
+					}
+				}
+				frame.columns.push_back( std::move( view ) );
+			}
+		}
+		else if( r.animation == Animation::Flip )
+			frame.items.push_back( { ReelAt( reel, std::llround( ReelPosition( reel, since, r.decel ) ) ) } );
+		else if( r.animation != Animation::Wheel )
+		{
+			const double position = ReelPosition( reel, since, r.decel );
+			const long long base  = (long long)std::floor( position );
 			for( long long i = base - k - 1; i <= base + k + 1; ++i )
 			{
-				float offset = (float)( i - position );
-				float alpha  = 1.0f - std::fabs( offset ) / ( k + 1 );
+				const float offset = (float)( i - position );
+				const float alpha  = 1.0f - std::fabs( offset ) / ( k + 1 );
 				if( alpha > 0.0f )
-					frame.items.push_back( { ReelAt( r, i ), offset, alpha } );
+					frame.items.push_back( { ReelAt( reel, i ), offset, alpha } );
 			}
 		}
+		return frame;
 	}
-	else
-	{
-		double sinceResult = now - ( r.startTime + r.spinTime );
-		frame.sinceResult  = (float)sinceResult;
-		VisibleItem item;
-		item.text      = r.winner;
-		item.winnerMix = (float)Clamp01( sinceResult / kHighlightTime );
-		item.scale     = 1.0f + 0.18f * (float)std::sin( kPi * Clamp01( sinceResult / kPulseTime ) );
 
-		if( showsReel )
+	// Landed: the winner alone in the center, with its effects.
+	frame.landed      = true;
+	frame.sinceResult = (float)sinceLanding;
+	frame.detail      = ItemDetail( seg.winner );
+	VisibleItem item;
+	item.text      = ItemName( seg.winner );
+	item.alpha     = frame.fade;
+	item.winnerMix = (float)Clamp01( sinceLanding / kHighlightTime );
+	item.scale     = 1.0f + 0.18f * (float)std::sin( kPi * Clamp01( sinceLanding / kPulseTime ) );
+	if( r.animation == Animation::Vertical || r.animation == Animation::Horizontal )
+	{
+		const float fade = 1.0f - (float)Clamp01( sinceLanding / kNeighborFadeOutTime );
+		for( long long d = -k - 1; fade > 0.0f && d <= k + 1; ++d )
 		{
-			float fade = 1.0f - (float)Clamp01( sinceResult / kNeighborFadeOutTime );
-			for( long long d = -k - 1; fade > 0.0f && d <= k + 1; ++d )
-			{
-				float alpha = ( 1.0f - std::fabs( (float)d ) / ( k + 1 ) ) * fade;
-				if( d != 0 && alpha > 0.0f )
-					frame.items.push_back( { ReelAt( r, r.distance + d ), (float)d, alpha } );
-			}
+			const float alpha = ( 1.0f - std::fabs( (float)d ) / ( k + 1 ) ) * fade;
+			if( d != 0 && alpha > 0.0f )
+				frame.items.push_back( { ReelAt( reel, reel.distance + d ), (float)d, alpha } );
 		}
-		frame.items.push_back( item );
 	}
+	frame.items.push_back( item );
 	return frame;
 }
 

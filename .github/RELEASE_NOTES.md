@@ -1,15 +1,38 @@
 Plugin FFGL de sorteio de nomes e números para o Resolume Arena/Avenue 7, com controle pelo painel do Resolume e por uma página web.
 
-## Novidades da 1.2
+## Novidades da 1.4
 
-- Efeitos quando o nome é sorteado: impacto, flash, onda de choque, faíscas, confete e brilho, cada um com liga/desliga, e controle de intensidade
-- Sorteio de teste: ensaia animação e efeitos só nos clips em **Modo prévia (teste)**, sem ir para o ar e sem contar no histórico
-- O painel web mostra a saída com fidelidade (fonte, animação e efeitos) nas telinhas Ao vivo e Teste
-- O histórico mostra data e horário de cada sorteado, e "Copiar lista" copia direto, com os horários
-- A cor do sorteado agora é branca por padrão, e o endereço na tela de espera vem desligado
-- O plugin passa a ter miniatura no Resolume
-- Opção de deixar todos os textos da tela em letra maiúscula (com acentos)
-- Duração e desaceleração passam a ser números inteiros
+**Novas formas de sortear**
+- **Vários ganhadores por sorteio** (até 20), revelados um a um ou todos juntos em grade
+- Duas animações novas: **roda da fortuna** e **caça-níquel**, com cada dígito parando da esquerda para a direita
+- **Contagem regressiva** "3, 2, 1" antes do giro
+- **Tela de ganhadores** com todos os sorteados até agora
+- `Nome | detalhe` na lista mostra uma segunda linha sob o sorteado (cidade, número do cupom…)
+
+**Na hora do evento**
+- Modos **Ensaio** e **Ao vivo**: a página fica azul ou vermelha, e no ao vivo a barra de espaço precisa ser segurada
+- Aviso quando nenhum clip do canal está rodando no Resolume
+- **Ausente, sortear de novo**: marca quem não está presente no histórico e sorteia outro na hora
+- **Travar configurações** em todos os painéis abertos
+- **Zerar histórico** agora pode ser desfeito
+- **QR code** na tela de espera para abrir o painel no celular
+- Avisos na lista: nomes repetidos, parecidos ou longos demais
+
+**Visual**
+- Título com fonte, tamanho, posição e cor próprios; texto de espera com tamanho e cor próprios
+- Nomes longos quebram em duas linhas antes de encolher
+- Efeito tambor na rolagem vertical e volta automática à tela de espera
+- Estilos prontos (Clássico, Dourado, Neon, Minimalista, Bingo) e "Restaurar padrão"
+
+**Painel e canais**
+- Painel novo: palco fixo à esquerda e configurações em abas, também no celular
+- Nomes para os canais ("Brindes", "Rifa"), que aparecem também no Resolume
+- Exportar e importar a configuração de um canal, e copiar o visual de um canal para outro
+
+**Segurança**
+- O painel web só lê fontes das pastas de fontes do sistema, e outros sites abertos no computador não conseguem mais ler ou mudar o sorteio
+
+Quem atualiza mantém o visual e o histórico que já tinha.
 
 ## Instalação no Windows
 
@@ -18,7 +41,7 @@ Plugin FFGL de sorteio de nomes e números para o Resolume Arena/Avenue 7, com c
 3. Reinicie o Resolume e procure **Sorteador** na aba **Sources**.
 4. Quando o Windows perguntar sobre a rede, permita em **redes privadas**, para o painel web funcionar em outros aparelhos.
 
-No macOS, baixe o **Sorteador-macOS.zip**, extraia e copie o `Sorteador.bundle` para `~/Documents/Resolume Arena/Extra Effects`.
+No macOS, baixe o **Sorteador-macOS.zip**, extraia e copie o `Sorteador.bundle` para `~/Documents/Resolume Arena/Extra Effects`. Se ele não aparecer no Resolume, veja a [instalação no macOS](https://github.com/osamuelvieira/sorteador-resolume#macos).
 
 Instruções completas no [README](https://github.com/osamuelvieira/sorteador-resolume#readme).
 

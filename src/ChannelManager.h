@@ -7,10 +7,18 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 namespace sorteador
 {
 class WebServer;
+
+// Plugin instances that drew a channel in the last moment, real draw and preview counted apart.
+struct OutputCount
+{
+	int live    = 0;
+	int preview = 0;
+};
 
 // Process wide state shared by every plugin instance and the web server.
 // Instances on the same channel show the same draw, perfectly in sync because they share one clock.
@@ -38,7 +46,15 @@ public:
 		return f( c );
 	}
 
+	// Called by every instance on each frame it draws, so the web panel can warn when nothing shows a channel.
+	void ReportFrame( const void* instance, int channel, bool preview );
+	OutputCount Outputs( int channel );
+
 	static int ClampChannel( int channel );
+	// Names given to the channels, empty where none was.
+	std::vector< std::string > Names();
+	// "Brindes" or "Canal 2", as the channel appears to people.
+	static std::string Label( const std::string& name, int channel );
 	// e.g. "http://192.168.0.10:8090", empty if the server is not running.
 	std::string WebAddress() const;
 
@@ -53,6 +69,14 @@ private:
 
 	std::mutex mutex;
 	std::array< Channel, kNumChannels > channels;
+
+	struct InstanceFrame
+	{
+		int channel  = 0;
+		bool preview = false;
+		double time  = 0.0;
+	};
+	std::unordered_map< const void*, InstanceFrame > frames;
 	int port = kDefaultPort;
 
 	std::unique_ptr< WebServer > server;

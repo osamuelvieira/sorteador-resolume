@@ -2,11 +2,15 @@
 // It loads the bundle, renders into an offscreen OpenGL 4.1 context and saves frames as PPM images.
 //
 //   sorteador_test_host <Sorteador.bundle> <output dir> [seconds to keep serving the web panel]
+//
+// While serving, creating "<name>.req" in the output dir saves the very next frame as "<name>.ppm", so a script
+// driving the web API can grab exact moments of a draw.
 #include <ffgl/FFGL.h>
 #include <OpenGL/OpenGL.h>
 #include <chrono>
 #include <cstdio>
 #include <dlfcn.h>
+#include <filesystem>
 #include <string>
 #include <thread>
 #include <vector>
@@ -139,12 +143,20 @@ int main( int argc, char** argv )
 
 	if( argc >= 4 )
 	{
-		// Keep running so the web panel can be exercised; a frame is saved every second.
-		int seconds = std::atoi( argv[ 3 ] );
-		for( int s = 0; s < seconds; ++s )
+		// Keep running so the web panel can be exercised, saving the frames that are asked for.
+		namespace fs = std::filesystem;
+		auto end     = std::chrono::steady_clock::now() + std::chrono::seconds( std::atoi( argv[ 3 ] ) );
+		while( std::chrono::steady_clock::now() < end )
 		{
-			RenderFor( 1.0 );
-			Save( out + "/serve-" + std::to_string( s ) + ".ppm" );
+			Render();
+			std::error_code ec;
+			for( fs::directory_iterator it( out, ec ), last; !ec && it != last; it.increment( ec ) )
+				if( it->path().extension() == ".req" )
+				{
+					Save( out + "/" + it->path().stem().string() + ".ppm" );
+					fs::remove( it->path(), ec );
+				}
+			std::this_thread::sleep_for( std::chrono::milliseconds( 16 ) );
 		}
 	}
 	else

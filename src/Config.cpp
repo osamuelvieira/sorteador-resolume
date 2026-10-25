@@ -48,14 +48,22 @@ void Sanitize( DrawConfig& c )
 {
 	if( c.mode != DrawMode::List && c.mode != DrawMode::Numbers )
 		c.mode = DrawMode::List;
-	if( c.animation != Animation::Vertical && c.animation != Animation::Horizontal && c.animation != Animation::Flip )
+	if( (int)c.animation < 0 || (int)c.animation > (int)Animation::Slot )
 		c.animation = Animation::Vertical;
+	c.drawCount = std::min( kMaxDrawCount, std::max( 1, c.drawCount ) );
+	c.reveal    = c.reveal == 1 ? 1 : 0;
+	c.revealGap = std::min( 15.0f, std::max( 1.0f, std::round( c.revealGap ) ) );
+	c.countdown = std::min( 5.0f, std::max( 0.0f, std::round( c.countdown ) ) );
 	if( c.numMin > c.numMax )
 		std::swap( c.numMin, c.numMax );
 	c.duration  = std::min( 60.0f, std::max( 1.0f, std::round( c.duration ) ) );
 	c.speed     = std::min( 100.0f, std::max( 2.0f, c.speed ) );
 	c.decel     = std::min( 8.0f, std::max( 1.0f, std::round( c.decel ) ) );
 	c.neighbors = std::min( kMaxNeighbors, std::max( 0, c.neighbors ) );
+	c.autoClear = std::min( 60.0f, std::max( 0.0f, std::round( c.autoClear ) ) );
+	c.titleSize = std::min( 0.3f, std::max( 0.02f, c.titleSize ) );
+	c.titlePosY = Clamp01( c.titlePosY );
+	c.idleSize  = std::min( 0.6f, std::max( 0.02f, c.idleSize ) );
 	c.textSize  = std::min( 0.6f, std::max( 0.02f, c.textSize ) );
 	c.posY      = Clamp01( c.posY );
 	c.outline   = Clamp01( c.outline );
@@ -65,6 +73,21 @@ void Sanitize( DrawConfig& c )
 	ClampColor( c.winnerColor );
 	ClampColor( c.outlineColor );
 	ClampColor( c.bgColor );
+	ClampColor( c.titleColor );
+	ClampColor( c.idleColor );
+}
+
+void MigrateTo13( DrawConfig& c )
+{
+	c.titleSize  = c.textSize * 0.45f;
+	c.titlePosY  = 0.88f;
+	c.titleColor = c.textColor;
+	c.idleSize   = c.textSize;
+	c.idleColor  = c.textColor;
+	// Long names used to shrink and the reel was flat; new looks are opt-in for existing setups.
+	c.wrapLongNames = false;
+	c.drum          = false;
+	Sanitize( c );
 }
 
 json ToJson( const DrawConfig& c )
@@ -76,11 +99,18 @@ json ToJson( const DrawConfig& c )
 		{ "numMax", c.numMax },
 		{ "zeroPad", c.zeroPad },
 		{ "noRepeat", c.noRepeat },
+		{ "drawCount", c.drawCount },
+		{ "reveal", c.reveal },
+		{ "revealGap", c.revealGap },
+		{ "boardTitle", c.boardTitle },
 		{ "animation", static_cast< int >( c.animation ) },
 		{ "duration", c.duration },
 		{ "speed", c.speed },
 		{ "decel", c.decel },
 		{ "neighbors", c.neighbors },
+		{ "drum", c.drum },
+		{ "autoClear", c.autoClear },
+		{ "countdown", c.countdown },
 		{ "fontPath", c.fontPath },
 		{ "textSize", c.textSize },
 		{ "posY", c.posY },
@@ -90,8 +120,15 @@ json ToJson( const DrawConfig& c )
 		{ "outline", c.outline },
 		{ "bgColor", ColorToJson( c.bgColor ) },
 		{ "bgOpacity", c.bgOpacity },
+		{ "wrapLongNames", c.wrapLongNames },
 		{ "title", c.title },
+		{ "titleFontPath", c.titleFontPath },
+		{ "titleSize", c.titleSize },
+		{ "titlePosY", c.titlePosY },
+		{ "titleColor", ColorToJson( c.titleColor ) },
 		{ "idleText", c.idleText },
+		{ "idleSize", c.idleSize },
+		{ "idleColor", ColorToJson( c.idleColor ) },
 		{ "uppercase", c.uppercase },
 		{ "showAddress", c.showAddress },
 		{ "fxImpact", c.fxImpact },
@@ -117,6 +154,10 @@ void MergeJson( DrawConfig& c, const json& j )
 	Read( j, "numMax", c.numMax );
 	Read( j, "zeroPad", c.zeroPad );
 	Read( j, "noRepeat", c.noRepeat );
+	Read( j, "drawCount", c.drawCount );
+	Read( j, "reveal", c.reveal );
+	Read( j, "revealGap", c.revealGap );
+	Read( j, "boardTitle", c.boardTitle );
 	int animation = static_cast< int >( c.animation );
 	Read( j, "animation", animation );
 	c.animation = static_cast< Animation >( animation );
@@ -124,6 +165,9 @@ void MergeJson( DrawConfig& c, const json& j )
 	Read( j, "speed", c.speed );
 	Read( j, "decel", c.decel );
 	Read( j, "neighbors", c.neighbors );
+	Read( j, "drum", c.drum );
+	Read( j, "autoClear", c.autoClear );
+	Read( j, "countdown", c.countdown );
 	Read( j, "fontPath", c.fontPath );
 	Read( j, "textSize", c.textSize );
 	Read( j, "posY", c.posY );
@@ -133,8 +177,15 @@ void MergeJson( DrawConfig& c, const json& j )
 	Read( j, "outline", c.outline );
 	ReadColor( j, "bgColor", c.bgColor );
 	Read( j, "bgOpacity", c.bgOpacity );
+	Read( j, "wrapLongNames", c.wrapLongNames );
 	Read( j, "title", c.title );
+	Read( j, "titleFontPath", c.titleFontPath );
+	Read( j, "titleSize", c.titleSize );
+	Read( j, "titlePosY", c.titlePosY );
+	ReadColor( j, "titleColor", c.titleColor );
 	Read( j, "idleText", c.idleText );
+	Read( j, "idleSize", c.idleSize );
+	ReadColor( j, "idleColor", c.idleColor );
 	Read( j, "uppercase", c.uppercase );
 	Read( j, "showAddress", c.showAddress );
 	Read( j, "fxImpact", c.fxImpact );
