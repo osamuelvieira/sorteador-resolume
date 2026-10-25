@@ -104,10 +104,10 @@ No computador, o **palco** fica fixo à esquerda e as configurações em abas à
 | Parte | O que tem |
 |---|---|
 | **Canais** (topo) | Troca entre os canais 1 a 4, com os nomes dados a eles. O indicador à direita mostra se o painel está conectado ao plugin |
-| **Preview / Ao vivo** (topo) | Define o que o botão grande faz. Em **Ao vivo** (vermelho, *NO AR*) ele sorteia de verdade, e o painel fica só com a operação do evento: a aba *Conteúdo* com a lista ou os números, o sorteio, o *Ausente* e o *Histórico*; animação, visual, textos e vários ganhadores somem. Em **Preview** (azul) faz um [sorteio de teste](#sorteio-de-teste-preview) e todas as configurações ficam disponíveis. O navegador lembra a escolha |
+| **Preview / Ao vivo** (topo) | Define o que o botão grande faz. Em **Ao vivo** (vermelho, *NO AR*) ele sorteia de verdade, e o painel fica só com a operação do evento: a aba *Conteúdo* com a lista ou os números e os vários ganhadores, o sorteio, o *Ausente* e o *Histórico*; animação, visual, textos e as opções do canal somem. Em **Preview** (azul) faz um [sorteio de teste](#sorteio-de-teste-preview) e todas as configurações ficam disponíveis. O navegador lembra a escolha |
 | **Travar** (topo) | Trava as configurações do canal em todos os painéis ([veja abaixo](#travar-configurações)) |
-| **Palco** | Reprodução fiel da saída (ou do teste, em Preview), com barra de progresso e estado. Embaixo, quantos clips do canal estão rodando no Resolume, com aviso se nenhum estiver. Botões **Iniciar sorteio**, **Ausente, sortear de novo**, **Ganhadores** e **Limpar tela**, e quantos ainda estão disponíveis |
-| Aba **Conteúdo** | Lista de nomes ou faixa de números, *Completar com zeros* e *Não repetir*, com avisos sobre nomes repetidos, parecidos ou longos demais. **Vários ganhadores**. **Este canal**: nome, exportar, importar e copiar o visual para outro canal. Em *Ao vivo*, só a lista ou os números e *Não repetir* |
+| **Palco** | Reprodução fiel da saída (ou do teste, em Preview), com barra de progresso e estado. Embaixo, quantos clips do canal estão rodando no Resolume, com aviso se nenhum estiver. Em *Ao vivo*, durante o sorteio, um **cronômetro** no canto mostra quanto falta para o resultado (contagem regressiva incluída), e com vários ganhadores um a um também quando sai o próximo; nos últimos 3 segundos ele fica vermelho. Botões **Iniciar sorteio**, **Ausente, sortear de novo**, **Ganhadores** e **Limpar tela**, e quantos ainda estão disponíveis |
+| Aba **Conteúdo** | Lista de nomes ou faixa de números, *Completar com zeros* e *Não repetir*, com avisos sobre nomes repetidos, parecidos ou longos demais. **Vários ganhadores**. **Este canal**: nome, exportar, importar e copiar o visual para outro canal. Em *Ao vivo*, só a lista ou os números, *Não repetir* e **Vários ganhadores** |
 | Aba **Animação** (só em Preview) | Tipo de animação, duração, velocidade inicial, desaceleração, itens visíveis ao redor, efeito tambor, volta automática à espera, contagem regressiva e os efeitos |
 | Aba **Visual** (só em Preview) | Estilos prontos, fonte, tamanho, posição vertical, nomes longos em duas linhas, contorno, cores e opacidade do fundo |
 | Aba **Textos** (só em Preview) | Título (texto, fonte, tamanho, posição e cor), texto de espera (texto, tamanho e cor), título da tela de ganhadores, maiúsculas e QR code na tela de espera |
@@ -284,7 +284,7 @@ Cada canal tem sua própria lista, configuração e histórico.
 
 Para sortear, por exemplo, 5 kits iguais:
 
-1. Em **Preview**, na aba *Conteúdo → Vários ganhadores*, coloque **5** ganhadores por sorteio.
+1. Na aba *Conteúdo → Vários ganhadores*, coloque **5** ganhadores por sorteio.
 2. Escolha **Um a um** para dar a cada ganhador seu momento (com o tempo de cada um sozinho na tela), ou **Todos em grade** para revelar todos de uma vez.
 3. Clique em **Iniciar sorteio** uma vez só. Os 5 entram no histórico conforme aparecem.
 

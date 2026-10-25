@@ -75,7 +75,7 @@
   .swatch i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); margin-right: -4px; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
   section.operate { border-color: var(--mode); }
-  .operate-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .operate-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; min-height: 36px; flex-wrap: wrap; }
   button:focus-visible, select:focus-visible, .switch input:focus-visible, .presets button:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
@@ -99,6 +99,16 @@
   /* Next to the title instead of over the stage, where it would cover the output's own title. */
   .phase { margin-left: auto; font-size: 13px; color: var(--muted); }
   h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+  /* On air, how long until the draw is over, for everyone who cuts to it (switchers, cameras, the host). */
+  /* Next to the stage, never on it, so nobody takes it for something on air. The head keeps its height when it comes and goes. */
+  .timer { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .timer strong { font-size: 32px; line-height: 1; font-weight: 700; }
+  .timer span { font-size: 13px; color: var(--muted); }
+  .timer span:empty { display: none; }
+  .timer:not(.hidden) { margin-left: auto; }
+  .phase:has(+ .timer:not(.hidden)) { display: none; }
+  .timer.ending strong { color: var(--live); }
+  body[data-mode=test] .timer { display: none; }
   .progress { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--accent); width: 0; }
   .message { color: var(--danger); min-height: 1.4em; margin: -4px 0 10px; font-size: 14px; }
   .actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -180,7 +190,7 @@
 <main>
   <div class="col col-stage">
     <section class="operate">
-      <div class="operate-head"><h2 id="stageTitle">Ao vivo</h2><span class="badge" id="badge">NO AR</span><span class="phase" id="stagePhase">Aguardando</span></div>
+      <div class="operate-head"><h2 id="stageTitle">Ao vivo</h2><span class="badge" id="badge">NO AR</span><span class="phase" id="stagePhase">Aguardando</span><div class="timer hidden" id="stageTimer" aria-live="off"><span id="timerNext"></span><strong id="timerLeft"></strong></div></div>
       <div class="stage">
         <canvas id="stageCanvas"></canvas>
         <div class="progress" id="stageProgress"></div>
@@ -234,7 +244,6 @@
       </div>
       <label class="switch"><span>Não repetir quem já foi sorteado</span><input type="checkbox" data-key="noRepeat"></label>
 
-      <div class="live-hide">
       <h3>Vários ganhadores</h3>
       <label class="field"><span>Ganhadores por sorteio <output data-for="drawCount" data-digits="0"></output></span>
         <input type="range" data-key="drawCount" min="1" max="20" step="1"></label>
@@ -248,6 +257,7 @@
           <input type="range" data-key="revealGap" min="1" max="15" step="1"></label>
       </div>
 
+      <div class="live-hide">
       <h3>Este canal</h3>
       <label class="field"><span>Nome (aparece nas abas, no Resolume e na tela de espera)</span>
         <input type="text" id="channelName" maxlength="40" placeholder="Ex.: Brindes"></label>
@@ -1071,6 +1081,30 @@
       : frame.phase === 'spinning' && run.endTime > run.startTime ? clamp01((now - run.startTime) / (run.endTime - run.startTime)) : 0;
     $('#stagePhase').textContent = phaseNames[frame.phase];
     $('#stageProgress').style.width = `${progress * 100}%`;
+    renderTimer(frame, run, reels[mode], now);
+  }
+
+  // Counts down to the last winner, the countdown before the spin included. With several one by one, also the next one.
+  const clockText = (seconds) => {
+    const whole = Math.max(0, Math.ceil(seconds - 1e-9));
+    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+  };
+  function renderTimer(frame, run, data, now) {
+    const el = $('#stageTimer');
+    const left = run.endTime - now;
+    const on = mode === 'live' && frame.phase === 'spinning' && left > 0;
+    el.classList.toggle('hidden', !on);
+    if (!on) return;
+    $('#timerLeft').textContent = clockText(left);
+    el.classList.toggle('ending', left <= 3);
+    const segs = data.serial === run.serial && data.segments ? data.segments : [];
+    let next = '';
+    if (segs.length > 1 && !data.grid) {
+      const i = segs.findIndex(seg => now < landing(seg));
+      if (i >= 0 && i < segs.length - 1) next = `${i + 1}º de ${segs.length} em ${clockText(landing(segs[i]) - now)}`;
+      else if (i === segs.length - 1) next = `último de ${segs.length}`;
+    }
+    $('#timerNext').textContent = next;
   }
   requestAnimationFrame(renderStages);
 
