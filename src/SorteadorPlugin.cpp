@@ -14,6 +14,7 @@ enum ParamId : unsigned int
 	P_START,
 	P_CLEAR,
 	P_RESET_HISTORY,
+	P_OPEN_PANEL,
 	P_CHANNEL,
 	P_MODE,
 	P_LIST,
@@ -73,7 +74,7 @@ CFFGLPluginInfo PluginInfo(
 
 bool IsEvent( unsigned int index )
 {
-	return index == P_START || index == P_CLEAR || index == P_RESET_HISTORY;
+	return index == P_START || index == P_CLEAR || index == P_RESET_HISTORY || index == P_OPEN_PANEL;
 }
 
 bool IsText( unsigned int index )
@@ -197,6 +198,7 @@ SorteadorPlugin::SorteadorPlugin()
 	SetParamInfo( P_START, "Iniciar sorteio", FF_TYPE_EVENT, false );
 	SetParamInfo( P_CLEAR, "Limpar tela", FF_TYPE_EVENT, false );
 	SetParamInfo( P_RESET_HISTORY, "Zerar histórico", FF_TYPE_EVENT, false );
+	SetParamInfo( P_OPEN_PANEL, "Abrir painel web", FF_TYPE_EVENT, false );
 
 	SetOptionParamInfo( P_CHANNEL, "Canal", ChannelManager::kNumChannels, 0.0f );
 	for( int i = 0; i < ChannelManager::kNumChannels; ++i )
@@ -401,7 +403,13 @@ FFResult SorteadorPlugin::SetFloatParameter( unsigned int index, float value )
 		// Buttons send 1 when pressed and 0 when released; act on the press only.
 		bool pressed                 = value > 0.5f && previousEventValue[ index ] <= 0.5f;
 		previousEventValue[ index ] = value;
-		if( pressed )
+		if( pressed && index == P_OPEN_PANEL )
+		{
+			std::string address = ChannelManager::Get().WebAddress();
+			if( !address.empty() )
+				OpenInBrowser( address + "/?canal=" + std::to_string( channel + 1 ) );
+		}
+		else if( pressed )
 		{
 			ChannelManager::Get().With( channel, [ index ]( Channel& c ) {
 				if( index == P_START )

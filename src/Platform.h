@@ -26,4 +26,7 @@ bool ReadFile( const std::filesystem::path& path, std::vector< unsigned char >& 
 // Writes to a temporary file first, so a crash never leaves a half written file behind.
 bool WriteFileAtomic( const std::filesystem::path& path, const std::string& contents );
 
+// Opens the URL in the default browser without blocking the caller.
+void OpenInBrowser( const std::string& url );
+
 }//namespace sorteador

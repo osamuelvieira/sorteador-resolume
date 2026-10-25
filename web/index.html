@@ -215,7 +215,8 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  let channel = Number(localStorageGet('canal')) || 1;
+  // "Abrir painel web" in Resolume opens /?canal=N so the panel starts on that clip's channel.
+  let channel = Number(new URLSearchParams(location.search).get('canal')) || Number(localStorageGet('canal')) || 1;
   let state = null;
   let lastRevision = -1;
   let pending = {};        // edits not yet sent

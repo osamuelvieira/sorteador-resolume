@@ -3,6 +3,17 @@
 #include <cstdlib>
 #include <fstream>
 #include <system_error>
+#include <thread>
+
+#if defined( _WIN32 )
+#include <windows.h>
+#include <objbase.h>
+#include <shellapi.h>
+#else
+#include <spawn.h>
+#include <sys/wait.h>
+extern char** environ;
+#endif
 
 namespace fs = std::filesystem;
 
@@ -125,6 +136,24 @@ bool WriteFileAtomic( const fs::path& path, const std::string& contents )
 	std::error_code ec;
 	fs::rename( temp, path, ec );
 	return !ec;
+}
+
+void OpenInBrowser( const std::string& url )
+{
+	// Runs on its own thread: starting the browser can take a moment and Resolume's UI must not freeze.
+	std::thread( [ url ]() {
+#if defined( _WIN32 )
+		CoInitializeEx( nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE );
+		std::wstring wide( url.begin(), url.end() );// the URL is plain ASCII
+		ShellExecuteW( nullptr, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL );
+		CoUninitialize();
+#else
+		pid_t pid;
+		const char* args[] = { "open", url.c_str(), nullptr };
+		if( posix_spawnp( &pid, "open", nullptr, nullptr, const_cast< char** >( args ), environ ) == 0 )
+			waitpid( pid, nullptr, 0 );
+#endif
+	} ).detach();
 }
 
 }//namespace sorteador

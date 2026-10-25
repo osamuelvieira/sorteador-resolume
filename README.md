@@ -24,7 +24,7 @@ Plugin FFGL para o **Resolume Arena/Avenue 7** que faz sorteios de **nomes** ou 
 
 ### Pelo painel web
 
-Com o clip parado na tela de espera, o endereço do painel aparece no rodapé da saída, algo como `Controle web: http://192.168.0.10:8090`. Abra esse endereço em qualquer navegador na mesma rede.
+O jeito mais rápido é clicar em **Abrir painel web** nos parâmetros do clip, no Resolume: o navegador abre direto no painel. Para usar em outro aparelho, veja o endereço que aparece no rodapé da saída enquanto o clip está na tela de espera, algo como `Controle web: http://192.168.0.10:8090`, e abra esse endereço em qualquer navegador na mesma rede.
 
 No painel você:
 
@@ -45,6 +45,7 @@ Os mesmos ajustes aparecem como parâmetros do clip, em três grupos (*Sorteio*,
 | **Iniciar sorteio** | Começa a animação e sorteia |
 | **Limpar tela** | Volta para o texto de espera |
 | **Zerar histórico** | Todos voltam a poder ser sorteados |
+| **Abrir painel web** | Abre o painel no navegador do computador do Resolume, já no canal deste clip |
 | **Canal** | Qual sorteio este clip mostra |
 | **Lista (separe com ;)** | Edição rápida da lista em uma linha: `Ana; Bruno; Carla` |
 

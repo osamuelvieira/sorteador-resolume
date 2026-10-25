@@ -67,6 +67,8 @@ if(WIN32)
 		${FFGL_DIR}/deps/glew-2.1.0/lib/Release/x64/glew32s.lib
 		opengl32
 		ws2_32
+		shell32
+		ole32
 	)
 	target_sources(Sorteador PRIVATE ${FFGL_DIR}/build/windows/FFGLPlugins.def)
 	set_target_properties(Sorteador PROPERTIES SUFFIX ".dll" PREFIX "")
