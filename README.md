@@ -121,6 +121,10 @@ third_party/          cpp-httplib, nlohmann/json, stb_truetype
 
 ## Créditos
 
+Criado por **Samuel Vieira**: Instagram [@osamuelvieira.tecnica](https://www.instagram.com/osamuelvieira.tecnica/)
+
+Bibliotecas utilizadas:
+
 - [FFGL SDK](https://github.com/resolume/ffgl): Resolume / FreeFrame (licença BSD)
 - [cpp-httplib](https://github.com/yhirose/cpp-httplib): Yuji Hirose (MIT)
 - [nlohmann/json](https://github.com/nlohmann/json): Niels Lohmann (MIT)

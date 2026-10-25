@@ -62,7 +62,7 @@ CFFGLPluginInfo PluginInfo(
 	0,
 	FF_SOURCE,
 	"Sorteio de nomes e números com animação, controlado pelo painel do Resolume ou pelo navegador.",
-	"github.com/osamuelvieira/sorteador-resolume",
+	"Samuel Vieira - Instagram @osamuelvieira.tecnica - github.com/osamuelvieira/sorteador-resolume",
 	0,
 	nullptr,
 	[]() -> FFResult {
