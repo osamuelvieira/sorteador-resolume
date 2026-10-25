@@ -60,12 +60,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
 
       - uses: softprops/action-gh-release@v2
         with:
+          name: Sorteador ${{ github.ref_name }}
+          body_path: .github/RELEASE_NOTES.md
           files: |
             dist/Sorteador-Windows/Sorteador.dll
             dist/Sorteador-macOS/Sorteador-macOS.zip
