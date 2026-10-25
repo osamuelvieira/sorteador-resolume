@@ -125,3 +125,7 @@ third_party/          cpp-httplib, nlohmann/json, stb_truetype
 - [cpp-httplib](https://github.com/yhirose/cpp-httplib): Yuji Hirose (MIT)
 - [nlohmann/json](https://github.com/nlohmann/json): Niels Lohmann (MIT)
 - [stb_truetype](https://github.com/nothings/stb): Sean Barrett (domínio público / MIT)
+
+## Licença
+
+[MIT](LICENSE): livre para usar, modificar e distribuir, mantendo o aviso de copyright.
